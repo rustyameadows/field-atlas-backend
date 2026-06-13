@@ -1,0 +1,19 @@
+{
+  "total": "1",
+  "limit": "1",
+  "start": "0",
+  "data": [
+    {
+      "id": "5CF88A2F-F820-44EA-8E24-E1312942DA57",
+      "url": "",
+      "name": "Bear Gulch Nature Center",
+      "parkCode": "pinn",
+      "description": "A small interpretive center on the east side of the park.",
+      "latitude": "36.48136264171376",
+      "longitude": "-121.18080523428978",
+      "latLong": "{lat:36.48136264171376, lng:-121.18080523428978}",
+      "amenities": ["Information - Maps Available", "Trailhead"],
+      "relevanceScore": 1.0
+    }
+  ]
+}
