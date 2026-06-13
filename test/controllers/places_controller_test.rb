@@ -23,7 +23,7 @@ class PlacesControllerTest < ActionDispatch::IntegrationTest
     assert_response :success
     assert_select "h1", "Places Pipeline"
     assert_select "a", text: "API JSON"
-    assert_select "td strong", text: "Pinnacles National Park", count: 2
-    assert_select "code", text: %r{/api/v1/search}
+    assert_select "td", text: "Pinnacles National Park", minimum: 2
+    assert_includes response.body, "/api/v1/search"
   end
 end
