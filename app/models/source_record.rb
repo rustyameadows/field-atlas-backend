@@ -2,6 +2,8 @@ class SourceRecord < ApplicationRecord
   belongs_to :source_dataset
   has_many :place_source_links, dependent: :destroy
   has_many :places, through: :place_source_links
+  has_many :place_containments, dependent: :destroy
+  has_many :containing_places, through: :place_containments, source: :containing_place
 
   before_validation :set_normalized_name
   before_validation :set_payload_hash
@@ -19,10 +21,10 @@ class SourceRecord < ApplicationRecord
     end
   }
 
-  def to_search_result(freshness: "stored")
+  def to_search_result(freshness: "stored", containing_place: nil)
     coordinate = normalized_payload.fetch("coordinate", {})
     canonical_id = canonical_place_id
-    {
+    result = {
       id: "source:#{provider}:#{record_type}:#{source_id}",
       result_type: "source_record",
       canonical_place_id: canonical_id,
@@ -37,7 +39,12 @@ class SourceRecord < ApplicationRecord
         mode: freshness,
         fetched_at: fetched_at&.iso8601
       }
-    }.compact
+    }
+    if containing_place.present?
+      result[:containing_place_id] = containing_place.id
+      result[:containing_place_name] = containing_place.name
+    end
+    result.compact
   end
 
   def coordinate

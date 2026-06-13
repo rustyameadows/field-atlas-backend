@@ -176,6 +176,41 @@ ALTER SEQUENCE public.park_units_id_seq OWNED BY public.park_units.id;
 
 
 --
+-- Name: place_containments; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.place_containments (
+    id bigint NOT NULL,
+    containing_place_id bigint NOT NULL,
+    source_record_id bigint NOT NULL,
+    relationship_type character varying DEFAULT 'contains'::character varying NOT NULL,
+    confidence numeric(5,4) DEFAULT 0.0 NOT NULL,
+    review_status character varying DEFAULT 'auto'::character varying NOT NULL,
+    created_at timestamp(6) without time zone NOT NULL,
+    updated_at timestamp(6) without time zone NOT NULL
+);
+
+
+--
+-- Name: place_containments_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.place_containments_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: place_containments_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.place_containments_id_seq OWNED BY public.place_containments.id;
+
+
+--
 -- Name: place_source_links; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -365,6 +400,13 @@ ALTER TABLE ONLY public.park_units ALTER COLUMN id SET DEFAULT nextval('public.p
 
 
 --
+-- Name: place_containments id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.place_containments ALTER COLUMN id SET DEFAULT nextval('public.place_containments_id_seq'::regclass);
+
+
+--
 -- Name: place_source_links id; Type: DEFAULT; Schema: public; Owner: -
 --
 
@@ -433,6 +475,14 @@ ALTER TABLE ONLY public.park_units
 
 
 --
+-- Name: place_containments place_containments_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.place_containments
+    ADD CONSTRAINT place_containments_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: place_source_links place_source_links_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -470,6 +520,13 @@ ALTER TABLE ONLY public.source_datasets
 
 ALTER TABLE ONLY public.source_records
     ADD CONSTRAINT source_records_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: idx_on_containing_place_id_source_record_id_bec21fb831; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX idx_on_containing_place_id_source_record_id_bec21fb831 ON public.place_containments USING btree (containing_place_id, source_record_id);
 
 
 --
@@ -512,6 +569,34 @@ CREATE INDEX index_park_units_on_agency_and_official_code ON public.park_units U
 --
 
 CREATE INDEX index_park_units_on_place_id ON public.park_units USING btree (place_id);
+
+
+--
+-- Name: index_place_containments_on_containing_place_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_place_containments_on_containing_place_id ON public.place_containments USING btree (containing_place_id);
+
+
+--
+-- Name: index_place_containments_on_relationship_type; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_place_containments_on_relationship_type ON public.place_containments USING btree (relationship_type);
+
+
+--
+-- Name: index_place_containments_on_review_status; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_place_containments_on_review_status ON public.place_containments USING btree (review_status);
+
+
+--
+-- Name: index_place_containments_on_source_record_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_place_containments_on_source_record_id ON public.place_containments USING btree (source_record_id);
 
 
 --
@@ -658,6 +743,14 @@ ALTER TABLE ONLY public.source_records
 
 
 --
+-- Name: place_containments fk_rails_ba3a4ad1c9; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.place_containments
+    ADD CONSTRAINT fk_rails_ba3a4ad1c9 FOREIGN KEY (source_record_id) REFERENCES public.source_records(id);
+
+
+--
 -- Name: place_source_links fk_rails_bac7c042a6; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -671,6 +764,14 @@ ALTER TABLE ONLY public.place_source_links
 
 ALTER TABLE ONLY public.active_storage_attachments
     ADD CONSTRAINT fk_rails_c3b3935057 FOREIGN KEY (blob_id) REFERENCES public.active_storage_blobs(id);
+
+
+--
+-- Name: place_containments fk_rails_cd76e4a36b; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.place_containments
+    ADD CONSTRAINT fk_rails_cd76e4a36b FOREIGN KEY (containing_place_id) REFERENCES public.places(id);
 
 
 --
@@ -688,6 +789,7 @@ ALTER TABLE ONLY public.park_units
 SET search_path TO "$user", public;
 
 INSERT INTO "schema_migrations" (version) VALUES
+('20260613213000'),
 ('20260613204500'),
 ('20260613203000'),
 ('20260613202820');

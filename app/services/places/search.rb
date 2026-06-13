@@ -4,12 +4,26 @@ module Places
   class Search
     DEFAULT_LIMIT = 10
     DEFAULT_SOURCES = %w[field_atlas nps].freeze
+    LANGUAGE_TYPE_ALIASES = {
+      "campground" => "campground",
+      "campgrounds" => "campground",
+      "visitor center" => "visitor_center",
+      "visitor centers" => "visitor_center",
+      "place" => "nps_place",
+      "places" => "nps_place",
+      "poi" => "nps_place",
+      "pois" => "nps_place",
+      "parking lot" => "parking_lot",
+      "parking lots" => "parking_lot"
+    }.freeze
 
     def initialize(params)
       @params = params
     end
 
     def call
+      return call_within_place if within_requested?
+
       results = []
       statuses = []
 
@@ -40,6 +54,42 @@ module Places
 
     attr_reader :params
 
+    def call_within_place
+      results = []
+      statuses = []
+
+      if sources.include?("field_atlas")
+        statuses << { source: "field_atlas", status: "ok", freshness: "canonical" }
+      end
+
+      if containing_place.blank?
+        statuses << { source: "field_atlas", status: "skipped", freshness: "canonical", reason: "containing_place_not_found" }
+        return { results: [], source_statuses: statuses, partial: false }
+      end
+
+      if sources.include?("nps")
+        stored_records = stored_nps_records_within_place
+        live = Sources::Nps::Adapter.new.search_within_place(place: containing_place, limit: limit, start: start, types: types)
+        statuses << live.fetch(:status)
+
+        live_records = persist_live_records_within_place(live.fetch(:candidates), containing_place)
+        source_records = live_records.presence || stored_records
+        results.concat(source_records.map { |record|
+          record.to_search_result(
+            freshness: live_records.present? ? "live_query" : "stored",
+            containing_place: containing_place
+          )
+        })
+      end
+
+      filtered = dedupe_results(filter_results(results)).first(limit)
+      {
+        results: filtered,
+        source_statuses: statuses,
+        partial: statuses.any? { |status| %w[failed missing_key].include?(status.fetch(:status)) }
+      }
+    end
+
     def canonical_results
       scope = Place.all
       scope = scope.where("name ILIKE ?", "%#{ActiveRecord::Base.sanitize_sql_like(query)}%") if query.present?
@@ -64,6 +114,16 @@ module Places
       SourceRecord.where(provider: "nps").with_query(query).order(fetched_at: :desc).limit(limit)
     end
 
+    def stored_nps_records_within_place
+      SourceRecord.
+        joins(:place_containments).
+        where(provider: "nps", record_type: nps_record_types_for(types)).
+        where(place_containments: { containing_place_id: containing_place.id, review_status: %w[auto verified] }).
+        with_query(query).
+        order(fetched_at: :desc).
+        limit(limit)
+    end
+
     def persist_live_records(candidates)
       return [] if candidates.blank?
 
@@ -74,6 +134,16 @@ module Places
       end
       upsert = SourceRecordUpsert.new(dataset: dataset)
       candidates.map { |candidate| upsert.call(candidate) }
+    end
+
+    def persist_live_records_within_place(candidates, place)
+      records = persist_live_records(candidates)
+      records.each do |record|
+        containment = PlaceContainment.find_or_initialize_by(containing_place: place, source_record: record)
+        containment.assign_attributes(relationship_type: "contains", confidence: 1, review_status: "verified")
+        containment.save!
+      end
+      records
     end
 
     def filter_results(results)
@@ -130,7 +200,9 @@ module Places
     end
 
     def query
-      @query ||= params[:q].presence || params[:query].presence
+      return @query if defined?(@query)
+
+      @query = parsed_language_query.present? ? nil : params[:q].presence || params[:query].presence
     end
 
     def sources
@@ -138,13 +210,18 @@ module Places
     end
 
     def types
-      @types ||= split_param(params[:types]).presence || Sources::Nps::Adapter::DEFAULT_TYPES
+      @types ||= split_param(params[:types]).presence || parsed_language_types.presence || default_types
     end
 
     def limit
       raw_limit = params[:limit].presence || DEFAULT_LIMIT
       @limit ||= [ [ raw_limit.to_i, 1 ].max, 25 ].min
       @limit
+    end
+
+    def start
+      raw_start = params[:start].presence || 0
+      @start ||= [ raw_start.to_i, 0 ].max
     end
 
     def bbox
@@ -165,6 +242,51 @@ module Places
 
     def split_param(value)
       value.to_s.split(",").map(&:strip).reject(&:blank?)
+    end
+
+    def within_requested?
+      params[:within_place_id].present? || params[:within].present? || parsed_language_query.present?
+    end
+
+    def containing_place
+      return @containing_place if defined?(@containing_place)
+
+      @containing_place = if params[:within_place_id].present?
+        Place.find_by(id: params[:within_place_id])
+      elsif within_name.present?
+        Place.where("name ILIKE ?", "%#{ActiveRecord::Base.sanitize_sql_like(within_name)}%").order(:name).first
+      end
+    end
+
+    def within_name
+      params[:within].presence || parsed_language_query&.fetch(:within)
+    end
+
+    def parsed_language_types
+      type = parsed_language_query&.fetch(:type)
+      type.present? ? [ type ] : []
+    end
+
+    def parsed_language_query
+      return @parsed_language_query if defined?(@parsed_language_query)
+
+      raw_query = params[:q].presence || params[:query].presence
+      match = raw_query.to_s.squish.match(/\A(?<type>campgrounds?|visitor centers?|places?|pois?|parking lots?)\s+in\s+(?<within>.+)\z/i)
+      @parsed_language_query = if match
+        normalized_type = match[:type].downcase
+        { type: LANGUAGE_TYPE_ALIASES.fetch(normalized_type), within: match[:within].strip }
+      end
+    end
+
+    def nps_record_types_for(search_types)
+      record_types = Array(search_types).filter_map do |type|
+        Sources::Nps::Adapter::ENDPOINTS[type]&.fetch(:record_type)
+      end
+      record_types.presence || Sources::Nps::Adapter::CHILD_TYPES.map { |type| Sources::Nps::Adapter::ENDPOINTS.fetch(type).fetch(:record_type) }
+    end
+
+    def default_types
+      within_requested? ? Sources::Nps::Adapter::CHILD_TYPES : Sources::Nps::Adapter::DEFAULT_TYPES
     end
   end
 end

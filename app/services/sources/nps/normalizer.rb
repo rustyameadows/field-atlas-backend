@@ -7,7 +7,8 @@ module Sources
         "park" => "park_unit",
         "place" => "nps_place",
         "campground" => "campground",
-        "visitor_center" => "visitor_center"
+        "visitor_center" => "visitor_center",
+        "parking_lot" => "parking_lot"
       }.freeze
 
       def initialize(record_type:, payload:)

@@ -8,7 +8,7 @@ module Api
       private
 
       def search_params
-        params.permit(:q, :query, :bbox, :center_lat, :center_lng, :radius_meters, :sources, :types, :limit, :format)
+        params.permit(:q, :query, :within, :within_place_id, :bbox, :center_lat, :center_lng, :radius_meters, :sources, :types, :limit, :start, :format)
       end
     end
   end

@@ -155,7 +155,115 @@ class SearchApiTest < ActionDispatch::IntegrationTest
     assert_empty body.fetch("results")
   end
 
+  test "within search resolves canonical place and fetches NPS child records by provider code" do
+    place = create_promoted_pinnacles_place
+    stub_nps("/campgrounds", "parkCode" => "pinn", "limit" => "10", "start" => "0").
+      to_return(status: 200, body: file_fixture("nps/campgrounds_pinnacles.json").read, headers: json_headers)
+
+    with_nps_key do
+      get "/api/v1/search", params: { within: "Pinnacles", sources: "nps", types: "campground", limit: 10 }
+    end
+
+    assert_response :success
+    body = ::JSON.parse(response.body)
+    assert_equal false, body.fetch("partial")
+    assert_equal [ "Pinnacles Campground" ], body.fetch("results").map { |result| result.fetch("name") }
+    result = body.fetch("results").first
+    assert_equal place.id, result.fetch("containing_place_id")
+    assert_equal "Pinnacles National Park", result.fetch("containing_place_name")
+    assert_equal "campground", result.fetch("category")
+    assert_equal 1, PlaceContainment.count
+    assert_equal place, PlaceContainment.first.containing_place
+    assert_equal "Pinnacles Campground", PlaceContainment.first.source_record.name
+  end
+
+  test "within_place_id search uses canonical place directly" do
+    place = create_promoted_pinnacles_place
+    stub_nps("/visitorcenters", "parkCode" => "pinn", "limit" => "10", "start" => "0").
+      to_return(status: 200, body: file_fixture("nps/visitorcenters_pinnacles.json").read, headers: json_headers)
+
+    with_nps_key do
+      get "/api/v1/search", params: { within_place_id: place.id, sources: "nps", types: "visitor_center", limit: 10 }
+    end
+
+    assert_response :success
+    body = ::JSON.parse(response.body)
+    assert_equal [ "Bear Gulch Nature Center" ], body.fetch("results").map { |result| result.fetch("name") }
+    assert_equal place.id, body.fetch("results").first.fetch("containing_place_id")
+  end
+
+  test "language query maps to place-scoped NPS lookup" do
+    create_promoted_pinnacles_place
+    stub_nps("/campgrounds", "parkCode" => "pinn", "limit" => "10", "start" => "0").
+      to_return(status: 200, body: file_fixture("nps/campgrounds_pinnacles.json").read, headers: json_headers)
+
+    with_nps_key do
+      get "/api/v1/search", params: { q: "campgrounds in Pinnacles", sources: "nps", limit: 10 }
+    end
+
+    assert_response :success
+    body = ::JSON.parse(response.body)
+    assert_equal [ "Pinnacles Campground" ], body.fetch("results").map { |result| result.fetch("name") }
+  end
+
+  test "place-scoped NPS failure falls back to cached associated source records" do
+    place = create_promoted_pinnacles_place
+    dataset = SourceDataset.find_by!(provider: "nps", name: "National Park Service")
+    cached_record = SourceRecord.create!(
+      source_dataset: dataset,
+      provider: "nps",
+      record_type: "campground",
+      source_id: "B55ABE9A-E5AF-4A4E-AACE-7299165831F5",
+      name: "Pinnacles Campground",
+      raw_payload: json_fixture("nps/campgrounds_pinnacles.json").fetch("data").first,
+      normalized_payload: {
+        "category" => "campground",
+        "coordinate" => { "lat" => 36.4898445959, "lng" => -121.148968014 },
+        "subtitle" => "National Park Service",
+        "park_code" => "pinn"
+      },
+      fetched_at: 1.hour.ago
+    )
+    PlaceContainment.create!(containing_place: place, source_record: cached_record, relationship_type: "contains", confidence: 1, review_status: "verified")
+    stub_nps("/campgrounds", "parkCode" => "pinn", "limit" => "10", "start" => "0").
+      to_return(status: 500, body: { error: "failed" }.to_json, headers: json_headers)
+
+    with_nps_key do
+      get "/api/v1/search", params: { within_place_id: place.id, sources: "nps", types: "campground", limit: 10 }
+    end
+
+    assert_response :success
+    body = ::JSON.parse(response.body)
+    assert_equal true, body.fetch("partial")
+    assert_equal [ "Pinnacles Campground" ], body.fetch("results").map { |result| result.fetch("name") }
+    assert_equal "stored", body.fetch("results").first.fetch("source_freshness").fetch("mode")
+  end
+
   private
+
+  def create_promoted_pinnacles_place
+    dataset = SourceDataset.find_or_create_by!(provider: "nps", name: "National Park Service") do |source_dataset|
+      source_dataset.freshness_mode = "live_query"
+      source_dataset.status = "active"
+    end
+    source_record = SourceRecord.create!(
+      source_dataset: dataset,
+      provider: "nps",
+      record_type: "park",
+      source_id: "pinn",
+      name: "Pinnacles National Park",
+      raw_payload: json_fixture("nps/parks_pinnacles.json").fetch("data").first,
+      normalized_payload: {
+        "category" => "park_unit",
+        "coordinate" => { "lat" => 36.49029208, "lng" => -121.1813607 },
+        "subtitle" => "National Park Service - National Park",
+        "designation" => "National Park",
+        "states" => "CA"
+      },
+      fetched_at: 1.hour.ago
+    )
+    Places::SourceRecordPromotion.new(source_record).call
+  end
 
   def stub_nps(path, query)
     stub_request(:get, "https://developer.nps.gov/api/v1#{path}").

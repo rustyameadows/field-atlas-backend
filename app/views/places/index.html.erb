@@ -24,6 +24,16 @@
   </p>
 
   <p>
+    <%= form.label :within, "Within place" %><br>
+    <%= form.search_field :within, value: @within %>
+  </p>
+
+  <p>
+    <%= form.label :within_place_id, "Within place ID" %><br>
+    <%= form.number_field :within_place_id, value: @within_place_id %>
+  </p>
+
+  <p>
     <%= form.label :sources, "Sources" %><br>
     <%= form.text_field :sources, value: @sources %>
   </p>

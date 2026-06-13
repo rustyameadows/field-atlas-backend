@@ -1,8 +1,10 @@
 class PlacesController < ApplicationController
   def index
     @query = params[:q].to_s
+    @within = params[:within].to_s
+    @within_place_id = params[:within_place_id].to_s
     @sources = params[:sources].presence || "field_atlas,nps"
-    @types = params[:types].presence || "park_unit,nps_place,campground,visitor_center"
+    @types = params[:types].presence || "park_unit,nps_place,campground,visitor_center,parking_lot"
     @limit = params[:limit].presence || Places::Search::DEFAULT_LIMIT
     @search_params = dashboard_search_params
     @search_response = Places::Search.new(@search_params).call
@@ -17,6 +19,8 @@ class PlacesController < ApplicationController
   def dashboard_search_params
     {
       q: @query.presence,
+      within: @within.presence,
+      within_place_id: @within_place_id.presence,
       sources: @sources,
       types: @types,
       limit: @limit
