@@ -53,4 +53,16 @@ Supported params:
 - `types=park_unit,nps_place,campground,visitor_center`
 - `limit`
 
+Canonical place external identifiers:
+
+```bash
+curl -X POST "http://127.0.0.1:3000/api/v1/place_external_identifiers" \
+  -H "Content-Type: application/json" \
+  -d '{"place_id":123,"provider":"mapkit","identifiers":[{"identifier":"abc123","identifier_kind":"primary"}]}'
+```
+
+External identifiers are verified crosswalks from providers such as MapKit, NPS,
+or BLM to canonical Field Atlas places. The backend stores provider IDs for
+matching and enrichment; it does not store full MapKit POI search responses.
+
 No fake seed places are created. Source records are persisted only from real provider responses or future explicit import tasks.

@@ -211,6 +211,41 @@ ALTER SEQUENCE public.place_containments_id_seq OWNED BY public.place_containmen
 
 
 --
+-- Name: place_external_identifiers; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.place_external_identifiers (
+    id bigint NOT NULL,
+    place_id bigint NOT NULL,
+    provider character varying NOT NULL,
+    identifier character varying NOT NULL,
+    identifier_kind character varying DEFAULT 'primary'::character varying NOT NULL,
+    review_status character varying DEFAULT 'verified'::character varying NOT NULL,
+    created_at timestamp(6) without time zone NOT NULL,
+    updated_at timestamp(6) without time zone NOT NULL
+);
+
+
+--
+-- Name: place_external_identifiers_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.place_external_identifiers_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: place_external_identifiers_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.place_external_identifiers_id_seq OWNED BY public.place_external_identifiers.id;
+
+
+--
 -- Name: place_source_links; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -407,6 +442,13 @@ ALTER TABLE ONLY public.place_containments ALTER COLUMN id SET DEFAULT nextval('
 
 
 --
+-- Name: place_external_identifiers id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.place_external_identifiers ALTER COLUMN id SET DEFAULT nextval('public.place_external_identifiers_id_seq'::regclass);
+
+
+--
 -- Name: place_source_links id; Type: DEFAULT; Schema: public; Owner: -
 --
 
@@ -480,6 +522,14 @@ ALTER TABLE ONLY public.park_units
 
 ALTER TABLE ONLY public.place_containments
     ADD CONSTRAINT place_containments_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: place_external_identifiers place_external_identifiers_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.place_external_identifiers
+    ADD CONSTRAINT place_external_identifiers_pkey PRIMARY KEY (id);
 
 
 --
@@ -597,6 +647,34 @@ CREATE INDEX index_place_containments_on_review_status ON public.place_containme
 --
 
 CREATE INDEX index_place_containments_on_source_record_id ON public.place_containments USING btree (source_record_id);
+
+
+--
+-- Name: index_place_external_identifiers_on_place_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_place_external_identifiers_on_place_id ON public.place_external_identifiers USING btree (place_id);
+
+
+--
+-- Name: index_place_external_identifiers_on_place_id_and_provider; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_place_external_identifiers_on_place_id_and_provider ON public.place_external_identifiers USING btree (place_id, provider);
+
+
+--
+-- Name: index_place_external_identifiers_on_provider_and_identifier; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX index_place_external_identifiers_on_provider_and_identifier ON public.place_external_identifiers USING btree (provider, identifier);
+
+
+--
+-- Name: index_place_external_identifiers_on_review_status; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_place_external_identifiers_on_review_status ON public.place_external_identifiers USING btree (review_status);
 
 
 --
@@ -783,12 +861,21 @@ ALTER TABLE ONLY public.park_units
 
 
 --
+-- Name: place_external_identifiers fk_rails_f9c35174f0; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.place_external_identifiers
+    ADD CONSTRAINT fk_rails_f9c35174f0 FOREIGN KEY (place_id) REFERENCES public.places(id);
+
+
+--
 -- PostgreSQL database dump complete
 --
 
 SET search_path TO "$user", public;
 
 INSERT INTO "schema_migrations" (version) VALUES
+('20260613230000'),
 ('20260613213000'),
 ('20260613204500'),
 ('20260613203000'),

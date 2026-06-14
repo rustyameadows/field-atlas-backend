@@ -23,13 +23,15 @@ class SourceRecord < ApplicationRecord
 
   def to_search_result(freshness: "stored", containing_place: nil)
     coordinate = normalized_payload.fetch("coordinate", {})
-    canonical_id = canonical_place_id
+    canonical_place = linked_canonical_place
+    canonical_id = canonical_place&.id
     result = {
       id: "source:#{provider}:#{record_type}:#{source_id}",
       result_type: "source_record",
       canonical_place_id: canonical_id,
       source: provider,
       source_id: source_id,
+      source_ids: source_ids_for(canonical_place),
       name: name,
       subtitle: normalized_payload["subtitle"],
       category: normalized_payload["category"],
@@ -82,8 +84,12 @@ class SourceRecord < ApplicationRecord
 
   private
 
-  def canonical_place_id
-    place_source_links.where.not(review_status: "rejected").order(confidence: :desc).pick(:place_id)
+  def linked_canonical_place
+    place_source_links.where.not(review_status: "rejected").order(confidence: :desc).first&.place
+  end
+
+  def source_ids_for(canonical_place)
+    canonical_place&.source_ids_by_provider.presence || { provider => [ source_id ] }
   end
 
   def set_normalized_name

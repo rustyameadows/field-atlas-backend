@@ -145,6 +145,62 @@ class SearchApiTest < ActionDispatch::IntegrationTest
     assert_equal [ "Pinnacles National Park" ], body.fetch("results").map { |result| result.fetch("name") }
   end
 
+  test "canonical place results include external source identifiers" do
+    place = Place.create!(
+      name: "Joshua Tree National Park",
+      slug: "joshua-tree-national-park",
+      kind: "park_unit",
+      status: "published",
+      primary_category: "national_park"
+    )
+    PlaceExternalIdentifier.create!(place: place, provider: "mapkit", identifier: "mapkit-jotr", identifier_kind: "primary")
+    PlaceExternalIdentifier.create!(place: place, provider: "mapkit", identifier: "mapkit-jotr-alt", identifier_kind: "alternate")
+    PlaceExternalIdentifier.create!(place: place, provider: "nps", identifier: "jotr", identifier_kind: "primary")
+
+    get "/api/v1/search", params: { q: "joshua", sources: "field_atlas", limit: 10 }
+
+    assert_response :success
+    result = ::JSON.parse(response.body).fetch("results").first
+    assert_equal "Joshua Tree National Park", result.fetch("name")
+    assert_equal [ "mapkit-jotr", "mapkit-jotr-alt" ], result.fetch("source_ids").fetch("mapkit")
+    assert_equal [ "jotr" ], result.fetch("source_ids").fetch("nps")
+  end
+
+  test "linked source record results include canonical place external identifiers" do
+    place = Place.create!(
+      name: "Pinnacles National Park",
+      slug: "pinnacles-national-park",
+      kind: "park_unit",
+      status: "published",
+      primary_category: "national_park"
+    )
+    PlaceExternalIdentifier.create!(place: place, provider: "mapkit", identifier: "mapkit-pinn")
+    dataset = SourceDataset.create!(provider: "nps", name: "National Park Service", freshness_mode: "live_query", status: "active")
+    source_record = SourceRecord.create!(
+      source_dataset: dataset,
+      provider: "nps",
+      record_type: "park",
+      source_id: "pinn",
+      name: "Pinnacles National Park",
+      raw_payload: json_fixture("nps/parks_pinnacles.json").fetch("data").first,
+      normalized_payload: {
+        "category" => "park_unit",
+        "coordinate" => { "lat" => 36.49029208, "lng" => -121.1813607 },
+        "subtitle" => "National Park Service"
+      },
+      fetched_at: 1.hour.ago
+    )
+    PlaceSourceLink.create!(place: place, source_record: source_record, match_type: "source_id", confidence: 1, review_status: "verified")
+
+    get "/api/v1/search", params: { q: "pinnacles", sources: "nps", limit: 10 }
+
+    assert_response :success
+    result = ::JSON.parse(response.body).fetch("results").first
+    assert_equal place.id, result.fetch("canonical_place_id")
+    assert_equal [ "mapkit-pinn" ], result.fetch("source_ids").fetch("mapkit")
+    assert_equal [ "pinn" ], result.fetch("source_ids").fetch("nps")
+  end
+
   test "missing NPS key degrades source without failing whole search" do
     get "/api/v1/search", params: { q: "pinnacles", sources: "nps", limit: 10 }
 

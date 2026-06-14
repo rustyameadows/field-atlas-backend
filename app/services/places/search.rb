@@ -100,6 +100,7 @@ module Places
           canonical_place_id: place.id,
           source: "field_atlas",
           source_id: nil,
+          source_ids: place.source_ids_by_provider.presence,
           name: place.name,
           subtitle: "Field Atlas",
           category: place.primary_category || place.kind,
