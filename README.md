@@ -38,6 +38,9 @@ NPS_API_KEY=your_key_here bin/rails server -b 0.0.0.0 -p 3000
 
 ## Places API
 
+Place category conventions live in
+[`docs/PLACE_CATEGORY_GUIDANCE.md`](docs/PLACE_CATEGORY_GUIDANCE.md).
+
 Search:
 
 ```bash
