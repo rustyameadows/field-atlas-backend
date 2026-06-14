@@ -11,6 +11,7 @@ class PlacesController < ApplicationController
     @api_url = api_v1_search_path(@search_params)
     @place_count = Place.count
     @source_record_count = SourceRecord.count
+    @canonical_places = Place.includes(:external_identifiers, place_source_links: :source_record).order(:name).limit(100)
     @latest_source_records = SourceRecord.order(fetched_at: :desc, updated_at: :desc).limit(25)
   end
 

@@ -106,6 +106,48 @@
   <p>No results yet. Search for a real NPS term like <%= link_to "pinnacles", root_path(q: "pinnacles", sources: "nps") %>.</p>
 <% end %>
 
+<h2>Canonical Places</h2>
+
+<p>Canonical records and verified provider associations.</p>
+
+<% if @canonical_places.any? %>
+  <table>
+    <thead>
+      <tr>
+        <th>Name</th>
+        <th>ID</th>
+        <th>Kind</th>
+        <th>Status</th>
+        <th>Category</th>
+        <th>Associations</th>
+      </tr>
+    </thead>
+    <tbody>
+      <% @canonical_places.each do |place| %>
+        <% source_ids = place.source_ids_by_provider %>
+        <tr>
+          <td><%= place.name %></td>
+          <td><%= place.id %></td>
+          <td><%= place.kind %></td>
+          <td><%= place.status %></td>
+          <td><%= place.primary_category || "-" %></td>
+          <td>
+            <% if source_ids.any? %>
+              <% source_ids.each do |provider, identifiers| %>
+                <%= provider %>: <%= identifiers.join(", ") %><br>
+              <% end %>
+            <% else %>
+              -
+            <% end %>
+          </td>
+        </tr>
+      <% end %>
+    </tbody>
+  </table>
+<% else %>
+  <p>No canonical places stored yet.</p>
+<% end %>
+
 <h2>Stored Source Records</h2>
 
 <p>Latest records persisted from real provider responses observed by the API.</p>
