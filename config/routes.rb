@@ -4,6 +4,7 @@ Rails.application.routes.draw do
   namespace :api, defaults: { format: :json } do
     namespace :v1 do
       get "search", to: "search#index"
+      get "place_options", to: "place_options#show"
       resources :places, only: :create
       post "place_external_identifiers", to: "place_external_identifiers#create"
     end

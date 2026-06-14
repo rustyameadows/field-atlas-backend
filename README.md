@@ -53,6 +53,15 @@ Supported params:
 - `types=park_unit,nps_place,campground,visitor_center`
 - `limit`
 
+Place options:
+
+```bash
+curl "http://127.0.0.1:3000/api/v1/place_options"
+```
+
+Returns the server-owned `kind` values the admin app should use when creating
+canonical places.
+
 Create a canonical place:
 
 ```bash
