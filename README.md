@@ -53,6 +53,24 @@ Supported params:
 - `types=park_unit,nps_place,campground,visitor_center`
 - `limit`
 
+Create a canonical place:
+
+```bash
+curl -X POST "http://127.0.0.1:3000/api/v1/places" \
+  -H "Content-Type: application/json" \
+  -d '{"place":{"name":"Hidden Valley Picnic Area","kind":"poi","primary_category":"picnic_area","coordinate":{"lat":34.0124,"lng":-116.167}},"associations":[{"provider":"mapkit","identifiers":[{"identifier":"abc123","identifier_kind":"primary"}]}]}'
+```
+
+The create endpoint accepts either top-level JSON fields or a wrapped
+`place` object. If `slug` is omitted, the backend generates one from `name`.
+If `status` is omitted, the backend creates a published place; pass
+`"status":"draft"` only when the place should stay hidden from normal app
+use. The request may include `associations`, using the same `provider` plus
+`identifiers` shape as the external-identifier endpoint. The response returns
+the canonical place `id`, normalized fields, `coordinate`, and `source_ids`.
+If an association is invalid or already belongs to another place, the whole
+create request fails and no canonical place is created.
+
 Canonical place external identifiers:
 
 ```bash

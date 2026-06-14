@@ -289,7 +289,7 @@ CREATE TABLE public.places (
     name character varying NOT NULL,
     slug character varying NOT NULL,
     kind character varying NOT NULL,
-    status character varying DEFAULT 'draft'::character varying NOT NULL,
+    status character varying DEFAULT 'published'::character varying NOT NULL,
     primary_category character varying,
     geometry public.geography(Geometry,4326),
     centroid public.geography(Point,4326),
@@ -875,6 +875,7 @@ ALTER TABLE ONLY public.place_external_identifiers
 SET search_path TO "$user", public;
 
 INSERT INTO "schema_migrations" (version) VALUES
+('20260614010000'),
 ('20260613230000'),
 ('20260613213000'),
 ('20260613204500'),
