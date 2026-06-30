@@ -7,7 +7,14 @@ module Places
     def call
       case source_record.provider
       when "nps"
-        Sources::Nps::PlacePromotion.new(source_record).call
+        case source_record.record_type
+        when "park"
+          Sources::Nps::PlacePromotion.new(source_record).call
+        when "campground", "visitor_center"
+          Sources::Nps::ChildPlacePromotion.new(source_record).call
+        else
+          raise ArgumentError, "Unsupported NPS source record type: #{source_record.record_type}"
+        end
       else
         raise ArgumentError, "Unsupported source provider: #{source_record.provider}"
       end

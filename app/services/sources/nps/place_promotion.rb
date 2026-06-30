@@ -47,7 +47,7 @@ module Sources
           slug: slug,
           kind: "park_unit",
           status: "published",
-          primary_category: "park_unit",
+          primary_category: primary_category,
           centroid: source_record.centroid,
           geometry: source_record.geometry,
           metadata: metadata
@@ -77,6 +77,14 @@ module Sources
           official_code: source_record.source_id,
           source_provider: "nps"
         }
+      end
+
+      def primary_category
+        designation = source_record.normalized_payload["designation"].to_s.strip
+        return designation.gsub("&", " and ").parameterize(separator: "_") if designation.present?
+        return "park" if source_record.name.to_s.downcase.include?("park")
+
+        "park_unit"
       end
 
       def states

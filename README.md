@@ -95,4 +95,19 @@ External identifiers are verified crosswalks from providers such as MapKit, NPS,
 or BLM to canonical Field Atlas places. The backend stores provider IDs for
 matching and enrichment; it does not store full MapKit POI search responses.
 
+## NPS Canonical Imports
+
+Run the Phase 1 NPS import to sync all NPS park units from the API, then import
+campgrounds and visitor centers as canonical places under those parks:
+
+```bash
+NPS_API_KEY=your_key_here bin/rails places:import_nps_phase1
+```
+
+The import is rerunnable. It upserts NPS source records by provider source ID,
+promotes parks, campgrounds, and visitor centers into canonical places, links
+them with `PlaceSourceLink`, and creates `PlaceContainment` for campgrounds and
+visitor centers under their parent park. Child records whose `parkCode` does not
+match a canonical NPS park are skipped and printed in the task output.
+
 No fake seed places are created. Source records are persisted only from real provider responses or future explicit import tasks.

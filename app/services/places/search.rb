@@ -94,6 +94,7 @@ module Places
       scope = Place.all
       scope = scope.where("name ILIKE ?", "%#{ActiveRecord::Base.sanitize_sql_like(query)}%") if query.present?
       scope.limit(limit).map do |place|
+        containing_place = containing_place_for(place)
         {
           id: "place:#{place.id}",
           result_type: "canonical_place",
@@ -106,9 +107,21 @@ module Places
           category: place.primary_category || place.kind,
           geometry_type: place.centroid.present? ? "point" : nil,
           coordinate: coordinate_from_point(place.centroid),
+          containing_place_id: containing_place&.id,
+          containing_place_name: containing_place&.name,
           source_freshness: { mode: "canonical", fetched_at: place.updated_at.iso8601 }
         }.compact
       end
+    end
+
+    def containing_place_for(place)
+      source_record = place.source_records.
+        joins(:place_containments).
+        includes(:containing_places).
+        where(place_containments: { review_status: %w[auto verified] }).
+        order("place_containments.confidence DESC", "place_containments.id ASC").
+        first
+      source_record&.containing_places&.first
     end
 
     def stored_nps_records

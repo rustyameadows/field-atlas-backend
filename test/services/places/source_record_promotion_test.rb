@@ -28,7 +28,7 @@ class Places::SourceRecordPromotionTest < ActiveSupport::TestCase
     assert_equal "pinnacles-national-park", place.slug
     assert_equal "park_unit", place.kind
     assert_equal "published", place.status
-    assert_equal "park_unit", place.primary_category
+    assert_equal "national_park", place.primary_category
     assert_equal({ "provider_codes" => { "nps" => "pinn" } }, place.metadata)
 
     assert_equal 1, ParkUnit.count
