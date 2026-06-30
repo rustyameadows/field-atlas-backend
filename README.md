@@ -22,6 +22,12 @@ bin/rails test
 
 The app defaults development/test database connections to `localhost:55432` so it can use Homebrew's current PostGIS package without replacing an existing PostgreSQL 16 service. Override with `DATABASE_HOST` and `DATABASE_PORT` if your local PostGIS server runs elsewhere.
 
+### Local PostGIS Troubleshooting
+
+If Rails raises `ActiveRecord::ConnectionNotEstablished` with `connection to server at "127.0.0.1", port 55432 failed: Connection refused`, the app is running but the expected PostgreSQL 18/PostGIS server is not listening on `localhost:55432`. This usually means Homebrew `postgresql@18` is stopped or its cluster is still configured for the default `5432` port.
+
+Fix the local service, not the Rails app: configure `/opt/homebrew/var/postgresql@18/postgresql.conf` with `port = 55432`, start `postgresql@18`, then run `PATH=/opt/homebrew/opt/postgresql@18/bin:$PATH bin/rails db:prepare`. Do not point this app at an older PostgreSQL 16 database on `5432` unless that server has the required PostGIS extension and schema.
+
 Production is still env-driven for Render later: Rails will use `DATABASE_URL`, and PostGIS is enabled by the places migration.
 
 Run for the iOS Simulator:
