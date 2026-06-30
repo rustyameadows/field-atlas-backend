@@ -1,0 +1,340 @@
+require "test_helper"
+
+class SearchApiTest < ActionDispatch::IntegrationTest
+  test "search returns live NPS candidates and persists source records" do
+    stub_nps("/parks", "q" => "pinnacles", "limit" => "10", "sort" => "-relevanceScore").
+      to_return(status: 200, body: file_fixture("nps/parks_pinnacles.json").read, headers: json_headers)
+    stub_nps("/places", "q" => "pinnacles", "limit" => "10").
+      to_return(status: 200, body: file_fixture("nps/places_pinnacles.json").read, headers: json_headers)
+    stub_nps("/campgrounds", "q" => "pinnacles", "limit" => "10").
+      to_return(status: 200, body: file_fixture("nps/campgrounds_pinnacles.json").read, headers: json_headers)
+    stub_nps("/visitorcenters", "q" => "pinnacles", "limit" => "10").
+      to_return(status: 200, body: file_fixture("nps/visitorcenters_pinnacles.json").read, headers: json_headers)
+
+    with_nps_key do
+      get "/api/v1/search", params: { q: "pinnacles", sources: "nps", limit: 10 }
+    end
+
+    assert_response :success
+    body = ::JSON.parse(response.body)
+    assert_equal false, body.fetch("partial")
+    assert_equal "ok", body.fetch("source_statuses").find { |status| status.fetch("source") == "nps" }.fetch("status")
+    assert_equal [
+      "Pinnacles National Park",
+      "Bear Gulch Reservoir",
+      "Pinnacles Campground",
+      "Bear Gulch Nature Center"
+    ], body.fetch("results").map { |result| result.fetch("name") }
+    assert_equal 4, SourceRecord.where(provider: "nps").count
+  end
+
+  test "blank map search uses stored records and does not call NPS live" do
+    dataset = SourceDataset.create!(provider: "nps", name: "National Park Service", freshness_mode: "live_query", status: "active")
+    SourceRecord.create!(
+      source_dataset: dataset,
+      provider: "nps",
+      record_type: "park",
+      source_id: "pinn",
+      name: "Pinnacles National Park",
+      raw_payload: json_fixture("nps/parks_pinnacles.json").fetch("data").first,
+      normalized_payload: {
+        "category" => "park_unit",
+        "coordinate" => { "lat" => 36.49029208, "lng" => -121.1813607 },
+        "subtitle" => "National Park Service"
+      },
+      fetched_at: 1.hour.ago
+    )
+
+    get "/api/v1/search", params: {
+      sources: "nps",
+      bbox: "-122.0,36.0,-121.0,37.0"
+    }
+
+    assert_response :success
+    body = ::JSON.parse(response.body)
+    assert_equal [ "Pinnacles National Park" ], body.fetch("results").map { |result| result.fetch("name") }
+    assert_not_requested :get, %r{\Ahttps://developer\.nps\.gov/api/v1/}
+  end
+
+  test "NPS failure returns partial response with stored records" do
+    dataset = SourceDataset.create!(provider: "nps", name: "National Park Service", freshness_mode: "live_query", status: "active")
+    SourceRecord.create!(
+      source_dataset: dataset,
+      provider: "nps",
+      record_type: "park",
+      source_id: "pinn",
+      name: "Pinnacles National Park",
+      raw_payload: json_fixture("nps/parks_pinnacles.json").fetch("data").first,
+      normalized_payload: {
+        "category" => "park_unit",
+        "coordinate" => { "lat" => 36.49029208, "lng" => -121.1813607 },
+        "subtitle" => "National Park Service"
+      },
+      fetched_at: 1.hour.ago
+    )
+    stub_nps("/parks", "q" => "pinnacles", "limit" => "10", "sort" => "-relevanceScore").
+      to_return(status: 500, body: { error: "failed" }.to_json, headers: json_headers)
+
+    with_nps_key do
+      get "/api/v1/search", params: { q: "pinnacles", sources: "nps", types: "park_unit", limit: 10 }
+    end
+
+    assert_response :success
+    body = ::JSON.parse(response.body)
+    assert_equal true, body.fetch("partial")
+    assert_equal "failed", body.fetch("source_statuses").find { |status| status.fetch("source") == "nps" }.fetch("status")
+    assert_equal [ "Pinnacles National Park" ], body.fetch("results").map { |result| result.fetch("name") }
+  end
+
+  test "NPS rate limit returns partial response with endpoint status" do
+    stub_nps("/parks", "q" => "pinnacles", "limit" => "10", "sort" => "-relevanceScore").
+      to_return(status: 429, body: { error: "rate limit" }.to_json, headers: json_headers.merge("x-ratelimit-remaining" => "0"))
+
+    with_nps_key do
+      get "/api/v1/search", params: { q: "pinnacles", sources: "nps", types: "park_unit", limit: 10 }
+    end
+
+    assert_response :success
+    body = ::JSON.parse(response.body)
+    nps_status = body.fetch("source_statuses").find { |status| status.fetch("source") == "nps" }
+
+    assert_equal true, body.fetch("partial")
+    assert_equal "failed", nps_status.fetch("status")
+    assert_equal "failed", nps_status.fetch("endpoints").fetch("/parks").fetch("status")
+    assert_equal 429, nps_status.fetch("endpoints").fetch("/parks").fetch("http_status")
+    assert_empty body.fetch("results")
+  end
+
+  test "linked source records are deduped behind canonical places" do
+    place = Place.create!(
+      name: "Pinnacles National Park",
+      slug: "pinnacles-national-park",
+      kind: "park_unit",
+      status: "published",
+      primary_category: "national_park"
+    )
+    dataset = SourceDataset.create!(provider: "nps", name: "National Park Service", freshness_mode: "live_query", status: "active")
+    source_record = SourceRecord.create!(
+      source_dataset: dataset,
+      provider: "nps",
+      record_type: "park",
+      source_id: "pinn",
+      name: "Pinnacles National Park",
+      raw_payload: json_fixture("nps/parks_pinnacles.json").fetch("data").first,
+      normalized_payload: {
+        "category" => "park_unit",
+        "coordinate" => { "lat" => 36.49029208, "lng" => -121.1813607 },
+        "subtitle" => "National Park Service"
+      },
+      fetched_at: 1.hour.ago
+    )
+    PlaceSourceLink.create!(
+      place: place,
+      source_record: source_record,
+      match_type: "source_id",
+      confidence: 1,
+      review_status: "verified"
+    )
+
+    get "/api/v1/search", params: { q: "pinnacles", sources: "field_atlas,nps", limit: 10 }
+
+    assert_response :success
+    body = ::JSON.parse(response.body)
+
+    assert_equal [ "canonical_place" ], body.fetch("results").map { |result| result.fetch("result_type") }
+    assert_equal [ "Pinnacles National Park" ], body.fetch("results").map { |result| result.fetch("name") }
+  end
+
+  test "canonical place results include external source identifiers" do
+    place = Place.create!(
+      name: "Joshua Tree National Park",
+      slug: "joshua-tree-national-park",
+      kind: "park_unit",
+      status: "published",
+      primary_category: "national_park"
+    )
+    PlaceExternalIdentifier.create!(place: place, provider: "mapkit", identifier: "mapkit-jotr", identifier_kind: "primary")
+    PlaceExternalIdentifier.create!(place: place, provider: "mapkit", identifier: "mapkit-jotr-alt", identifier_kind: "alternate")
+    PlaceExternalIdentifier.create!(place: place, provider: "nps", identifier: "jotr", identifier_kind: "primary")
+
+    get "/api/v1/search", params: { q: "joshua", sources: "field_atlas", limit: 10 }
+
+    assert_response :success
+    result = ::JSON.parse(response.body).fetch("results").first
+    assert_equal "Joshua Tree National Park", result.fetch("name")
+    assert_equal [ "mapkit-jotr", "mapkit-jotr-alt" ], result.fetch("source_ids").fetch("mapkit")
+    assert_equal [ "jotr" ], result.fetch("source_ids").fetch("nps")
+  end
+
+  test "linked source record results include canonical place external identifiers" do
+    place = Place.create!(
+      name: "Pinnacles National Park",
+      slug: "pinnacles-national-park",
+      kind: "park_unit",
+      status: "published",
+      primary_category: "national_park"
+    )
+    PlaceExternalIdentifier.create!(place: place, provider: "mapkit", identifier: "mapkit-pinn")
+    dataset = SourceDataset.create!(provider: "nps", name: "National Park Service", freshness_mode: "live_query", status: "active")
+    source_record = SourceRecord.create!(
+      source_dataset: dataset,
+      provider: "nps",
+      record_type: "park",
+      source_id: "pinn",
+      name: "Pinnacles National Park",
+      raw_payload: json_fixture("nps/parks_pinnacles.json").fetch("data").first,
+      normalized_payload: {
+        "category" => "park_unit",
+        "coordinate" => { "lat" => 36.49029208, "lng" => -121.1813607 },
+        "subtitle" => "National Park Service"
+      },
+      fetched_at: 1.hour.ago
+    )
+    PlaceSourceLink.create!(place: place, source_record: source_record, match_type: "source_id", confidence: 1, review_status: "verified")
+
+    get "/api/v1/search", params: { q: "pinnacles", sources: "nps", limit: 10 }
+
+    assert_response :success
+    result = ::JSON.parse(response.body).fetch("results").first
+    assert_equal place.id, result.fetch("canonical_place_id")
+    assert_equal [ "mapkit-pinn" ], result.fetch("source_ids").fetch("mapkit")
+    assert_equal [ "pinn" ], result.fetch("source_ids").fetch("nps")
+  end
+
+  test "missing NPS key degrades source without failing whole search" do
+    get "/api/v1/search", params: { q: "pinnacles", sources: "nps", limit: 10 }
+
+    assert_response :success
+    body = ::JSON.parse(response.body)
+    assert_equal true, body.fetch("partial")
+    assert_equal "missing_key", body.fetch("source_statuses").find { |status| status.fetch("source") == "nps" }.fetch("status")
+    assert_empty body.fetch("results")
+  end
+
+  test "within search resolves canonical place and fetches NPS child records by provider code" do
+    place = create_promoted_pinnacles_place
+    stub_nps("/campgrounds", "parkCode" => "pinn", "limit" => "10", "start" => "0").
+      to_return(status: 200, body: file_fixture("nps/campgrounds_pinnacles.json").read, headers: json_headers)
+
+    with_nps_key do
+      get "/api/v1/search", params: { within: "Pinnacles", sources: "nps", types: "campground", limit: 10 }
+    end
+
+    assert_response :success
+    body = ::JSON.parse(response.body)
+    assert_equal false, body.fetch("partial")
+    assert_equal [ "Pinnacles Campground" ], body.fetch("results").map { |result| result.fetch("name") }
+    result = body.fetch("results").first
+    assert_equal place.id, result.fetch("containing_place_id")
+    assert_equal "Pinnacles National Park", result.fetch("containing_place_name")
+    assert_equal "campground", result.fetch("category")
+    assert_equal 1, PlaceContainment.count
+    assert_equal place, PlaceContainment.first.containing_place
+    assert_equal "Pinnacles Campground", PlaceContainment.first.source_record.name
+  end
+
+  test "within_place_id search uses canonical place directly" do
+    place = create_promoted_pinnacles_place
+    stub_nps("/visitorcenters", "parkCode" => "pinn", "limit" => "10", "start" => "0").
+      to_return(status: 200, body: file_fixture("nps/visitorcenters_pinnacles.json").read, headers: json_headers)
+
+    with_nps_key do
+      get "/api/v1/search", params: { within_place_id: place.id, sources: "nps", types: "visitor_center", limit: 10 }
+    end
+
+    assert_response :success
+    body = ::JSON.parse(response.body)
+    assert_equal [ "Bear Gulch Nature Center" ], body.fetch("results").map { |result| result.fetch("name") }
+    assert_equal place.id, body.fetch("results").first.fetch("containing_place_id")
+  end
+
+  test "language query maps to place-scoped NPS lookup" do
+    create_promoted_pinnacles_place
+    stub_nps("/campgrounds", "parkCode" => "pinn", "limit" => "10", "start" => "0").
+      to_return(status: 200, body: file_fixture("nps/campgrounds_pinnacles.json").read, headers: json_headers)
+
+    with_nps_key do
+      get "/api/v1/search", params: { q: "campgrounds in Pinnacles", sources: "nps", limit: 10 }
+    end
+
+    assert_response :success
+    body = ::JSON.parse(response.body)
+    assert_equal [ "Pinnacles Campground" ], body.fetch("results").map { |result| result.fetch("name") }
+  end
+
+  test "place-scoped NPS failure falls back to cached associated source records" do
+    place = create_promoted_pinnacles_place
+    dataset = SourceDataset.find_by!(provider: "nps", name: "National Park Service")
+    cached_record = SourceRecord.create!(
+      source_dataset: dataset,
+      provider: "nps",
+      record_type: "campground",
+      source_id: "B55ABE9A-E5AF-4A4E-AACE-7299165831F5",
+      name: "Pinnacles Campground",
+      raw_payload: json_fixture("nps/campgrounds_pinnacles.json").fetch("data").first,
+      normalized_payload: {
+        "category" => "campground",
+        "coordinate" => { "lat" => 36.4898445959, "lng" => -121.148968014 },
+        "subtitle" => "National Park Service",
+        "park_code" => "pinn"
+      },
+      fetched_at: 1.hour.ago
+    )
+    PlaceContainment.create!(containing_place: place, source_record: cached_record, relationship_type: "contains", confidence: 1, review_status: "verified")
+    stub_nps("/campgrounds", "parkCode" => "pinn", "limit" => "10", "start" => "0").
+      to_return(status: 500, body: { error: "failed" }.to_json, headers: json_headers)
+
+    with_nps_key do
+      get "/api/v1/search", params: { within_place_id: place.id, sources: "nps", types: "campground", limit: 10 }
+    end
+
+    assert_response :success
+    body = ::JSON.parse(response.body)
+    assert_equal true, body.fetch("partial")
+    assert_equal [ "Pinnacles Campground" ], body.fetch("results").map { |result| result.fetch("name") }
+    assert_equal "stored", body.fetch("results").first.fetch("source_freshness").fetch("mode")
+  end
+
+  private
+
+  def create_promoted_pinnacles_place
+    dataset = SourceDataset.find_or_create_by!(provider: "nps", name: "National Park Service") do |source_dataset|
+      source_dataset.freshness_mode = "live_query"
+      source_dataset.status = "active"
+    end
+    source_record = SourceRecord.create!(
+      source_dataset: dataset,
+      provider: "nps",
+      record_type: "park",
+      source_id: "pinn",
+      name: "Pinnacles National Park",
+      raw_payload: json_fixture("nps/parks_pinnacles.json").fetch("data").first,
+      normalized_payload: {
+        "category" => "park_unit",
+        "coordinate" => { "lat" => 36.49029208, "lng" => -121.1813607 },
+        "subtitle" => "National Park Service - National Park",
+        "designation" => "National Park",
+        "states" => "CA"
+      },
+      fetched_at: 1.hour.ago
+    )
+    Places::SourceRecordPromotion.new(source_record).call
+  end
+
+  def stub_nps(path, query)
+    stub_request(:get, "https://developer.nps.gov/api/v1#{path}").
+      with(query: query, headers: { "X-Api-Key" => "test-nps-key" })
+  end
+
+  def json_headers
+    { "Content-Type" => "application/json" }
+  end
+
+  def with_nps_key
+    old_key = ENV["NPS_API_KEY"]
+    ENV["NPS_API_KEY"] = "test-nps-key"
+    yield
+  ensure
+    ENV["NPS_API_KEY"] = old_key
+  end
+end

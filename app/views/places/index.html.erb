@@ -1,0 +1,182 @@
+<% content_for :title, "Field Atlas Places" %>
+
+<h1>Places Pipeline</h1>
+
+<p>
+  <%= link_to "API JSON", @api_url %> |
+  <%= link_to "Health", rails_health_check_path %>
+</p>
+
+<p>
+  Canonical places: <%= number_with_delimiter(@place_count) %><br>
+  Source records: <%= number_with_delimiter(@source_record_count) %><br>
+  Current search state: <%= @search_response.fetch(:partial) ? "Partial" : "OK" %>
+</p>
+
+<hr>
+
+<h2>Search</h2>
+
+<%= form_with url: root_path, method: :get do |form| %>
+  <p>
+    <%= form.label :q, "Query" %><br>
+    <%= form.search_field :q, value: @query %>
+  </p>
+
+  <p>
+    <%= form.label :within, "Within place" %><br>
+    <%= form.search_field :within, value: @within %>
+  </p>
+
+  <p>
+    <%= form.label :within_place_id, "Within place ID" %><br>
+    <%= form.number_field :within_place_id, value: @within_place_id %>
+  </p>
+
+  <p>
+    <%= form.label :sources, "Sources" %><br>
+    <%= form.text_field :sources, value: @sources %>
+  </p>
+
+  <p>
+    <%= form.label :types, "Types" %><br>
+    <%= form.text_field :types, value: @types %>
+  </p>
+
+  <p>
+    <%= form.label :limit, "Limit" %><br>
+    <%= form.number_field :limit, value: @limit, min: 1, max: 25 %>
+  </p>
+
+  <p><%= form.submit "Search" %></p>
+<% end %>
+
+<h2>Source Statuses</h2>
+
+<ul>
+  <% @search_response.fetch(:source_statuses).each do |status| %>
+    <li><%= status.fetch(:source).humanize %>: <%= status.fetch(:status).humanize %></li>
+  <% end %>
+</ul>
+
+<h2>Search Results</h2>
+
+<p>
+  <%= pluralize(@search_response.fetch(:results).size, "result") %> returned from
+  <%= @api_url %>
+</p>
+
+<% if @search_response.fetch(:results).any? %>
+  <table>
+    <thead>
+      <tr>
+        <th>Name</th>
+        <th>Type</th>
+        <th>Category</th>
+        <th>Source</th>
+        <th>Source ID</th>
+        <th>Coordinate</th>
+        <th>Freshness</th>
+      </tr>
+    </thead>
+    <tbody>
+      <% @search_response.fetch(:results).each do |result| %>
+        <% coordinate = result[:coordinate] || result["coordinate"] || {} %>
+        <% freshness = result[:source_freshness] || result["source_freshness"] || {} %>
+        <% latitude = coordinate[:lat] || coordinate["lat"] %>
+        <% longitude = coordinate[:lng] || coordinate["lng"] %>
+        <tr>
+          <td>
+            <%= result[:name] || result["name"] %>
+            <% if result[:canonical_place_id] || result["canonical_place_id"] %>
+              <br>Canonical #<%= result[:canonical_place_id] || result["canonical_place_id"] %>
+            <% end %>
+          </td>
+          <td><%= (result[:result_type] || result["result_type"]).to_s.humanize %></td>
+          <td><%= result[:category] || result["category"] %></td>
+          <td><%= result[:source] || result["source"] %></td>
+          <td><%= result[:source_id] || result["source_id"] || "-" %></td>
+          <td><%= latitude.present? && longitude.present? ? "#{latitude}, #{longitude}" : "-" %></td>
+          <td><%= freshness[:mode] || freshness["mode"] %></td>
+        </tr>
+      <% end %>
+    </tbody>
+  </table>
+<% else %>
+  <p>No results yet. Search for a real NPS term like <%= link_to "pinnacles", root_path(q: "pinnacles", sources: "nps") %>.</p>
+<% end %>
+
+<h2>Canonical Places</h2>
+
+<p>Canonical records and verified provider associations.</p>
+
+<% if @canonical_places.any? %>
+  <table>
+    <thead>
+      <tr>
+        <th>Name</th>
+        <th>ID</th>
+        <th>Kind</th>
+        <th>Status</th>
+        <th>Category</th>
+        <th>Associations</th>
+      </tr>
+    </thead>
+    <tbody>
+      <% @canonical_places.each do |place| %>
+        <% source_ids = place.source_ids_by_provider %>
+        <tr>
+          <td><%= place.name %></td>
+          <td><%= place.id %></td>
+          <td><%= place.kind %></td>
+          <td><%= place.status %></td>
+          <td><%= place.primary_category || "-" %></td>
+          <td>
+            <% if source_ids.any? %>
+              <% source_ids.each do |provider, identifiers| %>
+                <%= provider %>: <%= identifiers.join(", ") %><br>
+              <% end %>
+            <% else %>
+              -
+            <% end %>
+          </td>
+        </tr>
+      <% end %>
+    </tbody>
+  </table>
+<% else %>
+  <p>No canonical places stored yet.</p>
+<% end %>
+
+<h2>Stored Source Records</h2>
+
+<p>Latest records persisted from real provider responses observed by the API.</p>
+
+<% if @latest_source_records.any? %>
+  <table>
+    <thead>
+      <tr>
+        <th>Name</th>
+        <th>Provider</th>
+        <th>Record Type</th>
+        <th>Source ID</th>
+        <th>Fetched</th>
+        <th>Expires</th>
+      </tr>
+    </thead>
+    <tbody>
+      <% @latest_source_records.each do |record| %>
+        <tr>
+          <td><%= record.name %></td>
+          <td><%= record.provider %></td>
+          <td><%= record.record_type.humanize %></td>
+          <td><%= record.source_id %></td>
+          <td><%= record.fetched_at&.to_fs(:db) %></td>
+          <td><%= record.expires_at&.to_fs(:db) || "-" %></td>
+        </tr>
+      <% end %>
+    </tbody>
+  </table>
+<% else %>
+  <p>No source records stored yet. A successful live NPS search will persist what it saw.</p>
+<% end %>

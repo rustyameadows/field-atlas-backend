@@ -1,0 +1,31 @@
+{
+  "total": "1",
+  "limit": "1",
+  "start": "0",
+  "data": [
+    {
+      "id": "9B266961-3364-43D2-9A08-82BB5EF5643F",
+      "url": "https://www.nps.gov/pinn/index.htm",
+      "fullName": "Pinnacles National Park",
+      "parkCode": "pinn",
+      "description": "Volcanic spires, talus caves, and chaparral define Pinnacles National Park.",
+      "latitude": "36.49029208",
+      "longitude": "-121.1813607",
+      "latLong": "lat:36.49029208, long:-121.1813607",
+      "states": "CA",
+      "name": "Pinnacles",
+      "designation": "National Park",
+      "activities": [
+        { "id": "BFF8C027-7C8F-480B-A5F8-CD8CE490BFBA", "name": "Hiking" }
+      ],
+      "images": [
+        {
+          "title": "High Peaks",
+          "altText": "Rock spires above chaparral.",
+          "url": "https://www.nps.gov/common/uploads/structured_data/pinnacles.jpg"
+        }
+      ],
+      "relevanceScore": 40.70523
+    }
+  ]
+}

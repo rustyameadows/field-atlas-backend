@@ -1,0 +1,31 @@
+{
+  "total": "1",
+  "limit": "1",
+  "start": "0",
+  "data": [
+    {
+      "id": "145046F9-F0B4-45AB-A422-6DB1D9F876D0",
+      "url": "https://www.nps.gov/places/bear-gulch-reservoir.htm",
+      "title": "Bear Gulch Reservoir",
+      "listingDescription": "A reservoir reached by trail in Pinnacles National Park.",
+      "relatedParks": [
+        {
+          "states": "CA",
+          "parkCode": "pinn",
+          "designation": "National Park",
+          "fullName": "Pinnacles National Park",
+          "url": "https://www.nps.gov/pinn/index.htm",
+          "name": "Pinnacles"
+        }
+      ],
+      "tags": ["water", "trail"],
+      "latitude": "36.472883116471955",
+      "longitude": "-121.187524845061",
+      "latLong": "36.472883116471955,-121.187524845061",
+      "isOpenToPublic": "1",
+      "isManagedByNps": "1",
+      "amenities": ["Scenic View/Photo Spot"],
+      "relevanceScore": 1.276058
+    }
+  ]
+}

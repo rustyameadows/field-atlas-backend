@@ -1,0 +1,20 @@
+{
+  "total": "1",
+  "limit": "1",
+  "start": "0",
+  "data": [
+    {
+      "id": "B55ABE9A-E5AF-4A4E-AACE-7299165831F5",
+      "url": "https://www.visitpinnacles.com/",
+      "name": "Pinnacles Campground",
+      "parkCode": "pinn",
+      "description": "Campground with tent, group, tent cabin, and RV sites.",
+      "latitude": "36.4898445959",
+      "longitude": "-121.148968014",
+      "latLong": "{lat:36.4898445959, lng:-121.148968014}",
+      "reservationUrl": "https://www.recreation.gov/camping/campgrounds/234015",
+      "amenities": { "toilets": ["Flush Toilets - year round"] },
+      "relevanceScore": 1.0
+    }
+  ]
+}
