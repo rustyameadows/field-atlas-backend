@@ -3,16 +3,19 @@ module Api
     module Serializers
       module_function
 
-      def auth(user:, api_session:, access_token:, refresh_token:)
-        {
+      def auth(user:, api_session:, access_token:, refresh_token:, device: nil)
+        response = {
           user: user(user),
           session: session(api_session, access_token, refresh_token)
         }
+        response[:device] = self.device(device) if device.present?
+        response
       end
 
       def user(user)
         {
           id: user.id,
+          apple_user_identifier: apple_user_identifier(user),
           display_name: user.display_name,
           email: user.email,
           email_verified: user.email_verified,
@@ -117,6 +120,15 @@ module Api
 
       def iso(value)
         value&.utc&.iso8601
+      end
+
+      def apple_user_identifier(user)
+        identity = if user.association(:auth_identities).loaded?
+          user.auth_identities.find { |auth_identity| auth_identity.provider == "apple" }
+        else
+          user.auth_identities.find_by(provider: "apple")
+        end
+        identity&.provider_subject
       end
     end
   end

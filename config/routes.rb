@@ -5,6 +5,7 @@ Rails.application.routes.draw do
     namespace :v1 do
       namespace :auth do
         post "apple", to: "apple#create"
+        post "dev", to: "dev#create"
         post "refresh", to: "refresh#create"
         delete "session", to: "sessions#destroy"
       end

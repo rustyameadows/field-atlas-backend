@@ -43,6 +43,44 @@ class FieldAtlasDataApiTest < ActionDispatch::IntegrationTest
     assert_equal auth.dig("user", "id"), response.parsed_body.dig("user", "id")
   end
 
+  test "apple auth can bootstrap a device in one response for the consuming app" do
+    post "/api/v1/auth/apple", params: @auth_payload.merge(
+      identity_token: "local.apple.user.1",
+      device_id: "bootstrap-device-1",
+      device_name: "Bootstrap iPhone",
+      platform: "ios",
+      app_version: "1.0"
+    ), as: :json
+
+    assert_response :created
+    auth = response.parsed_body
+    assert_equal "avery@example.com", auth.dig("user", "apple_user_identifier")
+    assert auth.dig("session", "access_token").present?
+    assert_match(/\A[0-9a-f-]{36}\z/, auth.dig("device", "id"))
+    assert_equal "bootstrap-device-1", auth.dig("device", "client_device_id")
+    assert_equal auth.dig("device", "id"), auth.dig("session", "device_id")
+  end
+
+  test "dev auth returns an authenticated local user session and device without apple token" do
+    post "/api/v1/auth/dev", params: {
+      email: "local@example.com",
+      full_name: "Local Developer",
+      device_id: "dev-device-1",
+      device_name: "Local iPhone",
+      platform: "ios"
+    }, as: :json
+
+    assert_response :created
+    auth = response.parsed_body
+    assert_equal "local@example.com", auth.dig("user", "email")
+    assert_equal "local@example.com", auth.dig("user", "apple_user_identifier")
+    assert auth.dig("session", "access_token").present?
+    assert_equal "dev-device-1", auth.dig("device", "client_device_id")
+
+    get "/api/v1/me", headers: bearer(auth.dig("session", "access_token")), as: :json
+    assert_response :success
+  end
+
   test "sync operations accept a workspace and pull returns canonical changes" do
     token = authenticated_token
     device_id = register_device(token).fetch("id")

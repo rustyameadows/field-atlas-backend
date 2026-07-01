@@ -16,13 +16,14 @@ module Api
             user: user,
             api_session: api_session,
             access_token: access_token,
-            refresh_token: refresh_token
+            refresh_token: refresh_token,
+            device: device
           ), status: :created
         rescue ::Auth::AppleIdentityVerifier::VerificationError => e
           render_error("invalid_apple_identity", e.message, status: :unauthorized)
         end
 
-        private
+        protected
 
         def upsert_user_and_device(claims)
           identity = UserAuthIdentity.find_or_initialize_by(provider: "apple", provider_subject: claims.fetch("sub"))
@@ -51,7 +52,7 @@ module Api
 
           ::Devices::Registrar.call(user: user, attrs: {
             device_id: params[:device_id],
-            name: params[:device_name],
+            name: params[:device_name].presence || params[:name],
             platform: params[:platform] || "ios",
             app_version: params[:app_version],
             build_number: params[:build_number]
