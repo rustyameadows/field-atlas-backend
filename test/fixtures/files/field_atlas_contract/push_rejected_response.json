@@ -1,0 +1,15 @@
+{
+  "results": [
+    {
+      "operation_id": "op-rejected-1",
+      "status": "rejected",
+      "entity_type": "trip",
+      "entity_id": "local-trip-1",
+      "error": {
+        "code": "unsupported_action",
+        "message": "Unsupported operation action: launch_rocket",
+        "details": []
+      }
+    }
+  ]
+}

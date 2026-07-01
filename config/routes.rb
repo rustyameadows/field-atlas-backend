@@ -3,6 +3,22 @@ Rails.application.routes.draw do
 
   namespace :api, defaults: { format: :json } do
     namespace :v1 do
+      namespace :auth do
+        post "apple", to: "apple#create"
+        post "refresh", to: "refresh#create"
+        delete "session", to: "sessions#destroy"
+      end
+      get "me", to: "me#show"
+      resources :devices, only: [ :create, :update ]
+      get "sync", to: "sync#show"
+      post "sync/operations", to: "sync_operations#create"
+      resources :trips, only: [] do
+        resources :invites, only: [ :create ], controller: "trip_invites"
+        resources :members, only: [ :update, :destroy ], controller: "trip_members"
+      end
+      get "invites/:token", to: "trip_invites#show"
+      post "invites/:token/accept", to: "trip_invites#accept"
+
       get "search", to: "search#index"
       get "place_options", to: "place_options#show"
       resources :places, only: :create

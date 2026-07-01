@@ -1,0 +1,19 @@
+{
+  "results": [
+    {
+      "operation_id": "op-conflict-1",
+      "status": "conflict",
+      "entity_type": "trip",
+      "entity_id": "44444444-4444-4444-8444-444444444444",
+      "server_id": "44444444-4444-4444-8444-444444444444",
+      "revision": 2,
+      "conflict": {
+        "code": "stale_revision",
+        "message": "Operation base revision is older than the current server revision.",
+        "base_revision": 1,
+        "current_revision": 2,
+        "resolution": "pull_latest"
+      }
+    }
+  ]
+}
