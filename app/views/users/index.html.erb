@@ -1,0 +1,42 @@
+<% content_for :title, "Field Atlas Users" %>
+
+<h1>Users</h1>
+
+<p>
+  Total users: <%= number_with_delimiter(@user_count) %><br>
+  Active users: <%= number_with_delimiter(@active_user_count) %><br>
+  Showing latest <%= number_with_delimiter(@users.size) %>
+</p>
+
+<% if @users.any? %>
+  <table>
+    <thead>
+      <tr>
+        <th>Display name</th>
+        <th>Email</th>
+        <th>Status</th>
+        <th>Email verified</th>
+        <th>Devices</th>
+        <th>Owned trips</th>
+        <th>Created</th>
+        <th>Updated</th>
+      </tr>
+    </thead>
+    <tbody>
+      <% @users.each do |user| %>
+        <tr>
+          <td><%= user.display_name.presence || "-" %></td>
+          <td><%= user.email.presence || "-" %></td>
+          <td><%= user.status %></td>
+          <td><%= user.email_verified? ? "Yes" : "No" %></td>
+          <td><%= user.devices.size %></td>
+          <td><%= user.owned_trips.size %></td>
+          <td><%= user.created_at&.to_fs(:db) %></td>
+          <td><%= user.updated_at&.to_fs(:db) %></td>
+        </tr>
+      <% end %>
+    </tbody>
+  </table>
+<% else %>
+  <p>No users stored yet.</p>
+<% end %>
