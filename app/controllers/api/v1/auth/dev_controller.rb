@@ -8,7 +8,7 @@ module Api
           email = params[:email].presence || "local-dev@example.com"
           full_name = params[:full_name].presence || params[:name].presence || "Local Developer"
           claims = {
-            "iss" => ::Auth::AppleIdentityVerifier::ISSUER,
+            "iss" => ::Auth::AppleIdentityVerifier::DEFAULT_ISSUER,
             "aud" => ::Auth::AppleIdentityVerifier::DEFAULT_AUDIENCE,
             "sub" => params[:apple_user_identifier].presence || email,
             "email" => email,

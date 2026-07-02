@@ -18,6 +18,12 @@ services:
         sync: false
       - key: FIELD_ATLAS_INVITE_HOST
         sync: false
+      - key: APPLE_CLIENT_ID
+        value: "com.rustymeadows.DestinationApp"
+      - key: APPLE_ISSUER
+        value: "https://appleid.apple.com"
+      - key: APPLE_JWKS_URL
+        value: "https://appleid.apple.com/auth/keys"
       - key: RAILS_ENV
         value: "production"
       - key: RAILS_MAX_THREADS

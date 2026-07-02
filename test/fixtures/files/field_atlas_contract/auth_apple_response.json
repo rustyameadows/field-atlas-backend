@@ -1,7 +1,7 @@
 {
   "user": {
     "id": "11111111-1111-4111-8111-111111111111",
-    "apple_user_identifier": "avery@example.com",
+    "apple_user_identifier": "apple-user-fixture-1",
     "display_name": "Avery Field",
     "email": "avery@example.com",
     "email_verified": true,

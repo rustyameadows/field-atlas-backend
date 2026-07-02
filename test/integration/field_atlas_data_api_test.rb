@@ -18,6 +18,7 @@ class FieldAtlasDataApiTest < ActionDispatch::IntegrationTest
     auth = response.parsed_body
     assert_equal "Avery Field", auth.dig("user", "display_name")
     assert_equal "avery@example.com", auth.dig("user", "email")
+    assert_equal "test.identity.token", auth.dig("user", "apple_user_identifier")
     assert_match(/\A[0-9a-f-]{36}\z/, auth.dig("user", "id"))
     assert auth.dig("session", "access_token").present?
     assert auth.dig("session", "refresh_token").present?
@@ -54,11 +55,47 @@ class FieldAtlasDataApiTest < ActionDispatch::IntegrationTest
 
     assert_response :created
     auth = response.parsed_body
-    assert_equal "avery@example.com", auth.dig("user", "apple_user_identifier")
+    assert_equal "local.apple.user.1", auth.dig("user", "apple_user_identifier")
     assert auth.dig("session", "access_token").present?
     assert_match(/\A[0-9a-f-]{36}\z/, auth.dig("device", "id"))
     assert_equal "bootstrap-device-1", auth.dig("device", "client_device_id")
     assert_equal auth.dig("device", "id"), auth.dig("session", "device_id")
+  end
+
+  test "apple auth reuses users by apple subject" do
+    post "/api/v1/auth/apple", params: @auth_payload.merge(
+      identity_token: "apple-subject-1",
+      email: "first@example.com"
+    ), as: :json
+    assert_response :created
+    first_user_id = response.parsed_body.dig("user", "id")
+
+    post "/api/v1/auth/apple", params: @auth_payload.merge(
+      identity_token: "apple-subject-1",
+      email: "renamed@example.com"
+    ), as: :json
+    assert_response :created
+
+    assert_equal first_user_id, response.parsed_body.dig("user", "id")
+    assert_equal 1, UserAuthIdentity.where(provider: "apple", provider_subject: "apple-subject-1").count
+  end
+
+  test "apple auth does not use email as the account key" do
+    post "/api/v1/auth/apple", params: @auth_payload.merge(
+      identity_token: "apple-subject-2",
+      email: "shared@example.com"
+    ), as: :json
+    assert_response :created
+    first_user_id = response.parsed_body.dig("user", "id")
+
+    post "/api/v1/auth/apple", params: @auth_payload.merge(
+      identity_token: "apple-subject-3",
+      email: "shared@example.com"
+    ), as: :json
+    assert_response :created
+
+    refute_equal first_user_id, response.parsed_body.dig("user", "id")
+    assert_equal 2, UserAuthIdentity.where(provider: "apple", email: "shared@example.com").count
   end
 
   test "dev auth returns an authenticated local user session and device without apple token" do
@@ -423,8 +460,12 @@ class FieldAtlasDataApiTest < ActionDispatch::IntegrationTest
 
   private
 
-  def authenticated_token(email: "avery@example.com", full_name: "Avery Field")
-    post "/api/v1/auth/apple", params: @auth_payload.merge(email: email, full_name: full_name), as: :json
+  def authenticated_token(email: "avery@example.com", full_name: "Avery Field", apple_subject: nil)
+    post "/api/v1/auth/apple", params: @auth_payload.merge(
+      identity_token: apple_subject.presence || "apple-subject:#{email}",
+      email: email,
+      full_name: full_name
+    ), as: :json
     assert_response :success
     response.parsed_body.dig("session", "access_token")
   end
