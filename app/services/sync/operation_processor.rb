@@ -719,7 +719,7 @@ module Sync
       trip = if uuid?(operation[:entity_id])
         Trip.find_by(id: operation[:entity_id])
       end
-      trip ||= Trip.joins(:members).where(trip_members: { user_id: @user.id }).find_by(client_id: local_id)
+      trip ||= accessible_trip_scope.find_by(client_id: local_id)
       trip || Trip.new
     end
 
@@ -731,11 +731,15 @@ module Sync
       else
         local_id = read_payload(payload, :trip_id, :tripID, :id, :client_id, :clientID)
         local_id = identifier if local_id == MISSING
-        Trip.joins(:members).where(trip_members: { user_id: @user.id }).find_by!(client_id: local_id)
+        accessible_trip_scope.find_by!(client_id: local_id)
       end
       raise ActiveRecord::RecordNotFound unless trip.readable_by?(@user)
 
       trip
+    end
+
+    def accessible_trip_scope
+      Trip.active.where(id: AccessScope.new(user: @user).active_trip_ids)
     end
 
     def trip_identifier_from(payload, operation)

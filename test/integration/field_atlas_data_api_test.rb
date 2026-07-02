@@ -216,6 +216,88 @@ class FieldAtlasDataApiTest < ActionDispatch::IntegrationTest
     assert pull.fetch("changes").any? { |record| record["type"] == "trip_stop" && record.dig("attributes", "kind") == "waypoint" }
   end
 
+  test "sync includes active trips owned by the user even without a membership row" do
+    token = authenticated_token(email: "owner-only@example.com", full_name: "Owner Only")
+    user = User.find_by!(email: "owner-only@example.com")
+    device = Device.find(register_device(token, local_id: "owner-only-device").fetch("id"))
+    trip = Trip.create!(
+      owner_user: user,
+      created_by_device: device,
+      client_id: "legacy-owner-only-trip",
+      title: "Legacy Owner Only"
+    )
+
+    assert_not TripMember.exists?(trip: trip, user: user)
+    assert trip.readable_by?(user)
+    assert trip.editable_by?(user)
+    assert trip.manageable_by?(user)
+
+    get "/api/v1/sync", headers: bearer(token), as: :json
+
+    assert_response :success
+    assert response.parsed_body.fetch("changes").any? { |record| record["type"] == "trip" && record["id"] == trip.id }
+  end
+
+  test "sync upsert finds active owned trips by client id without a membership row" do
+    token = authenticated_token(email: "owner-lookup@example.com", full_name: "Owner Lookup")
+    user = User.find_by!(email: "owner-lookup@example.com")
+    device_id = register_device(token, local_id: "owner-lookup-device").fetch("id")
+    trip = Trip.create!(
+      owner_user: user,
+      created_by_device_id: device_id,
+      client_id: "legacy-owner-client-id",
+      title: "Original Title"
+    )
+
+    post "/api/v1/sync/operations", params: {
+      operations: [
+        {
+          operation_id: "op-owner-lookup-1",
+          device_id: device_id,
+          entity_type: "trip",
+          entity_id: "legacy-owner-client-id",
+          action: "upsert_trip_workspace",
+          payload: {
+            id: "legacy-owner-client-id",
+            title: "Updated Title"
+          }
+        }
+      ]
+    }, headers: bearer(token), as: :json
+
+    assert_response :success
+    result = response.parsed_body.fetch("results").first
+    assert_equal "accepted", result.fetch("status")
+    assert_equal trip.id, result.fetch("server_id")
+    assert_equal "Updated Title", trip.reload.title
+  end
+
+  test "sync includes deleted records for owner-only trips" do
+    token = authenticated_token(email: "owner-delete@example.com", full_name: "Owner Delete")
+    user = User.find_by!(email: "owner-delete@example.com")
+    device = Device.find(register_device(token, local_id: "owner-delete-device").fetch("id"))
+    trip = Trip.create!(
+      owner_user: user,
+      created_by_device: device,
+      client_id: "legacy-owner-delete-trip",
+      title: "Deleted Owner Only"
+    )
+    Sync::DeletedRecordRecorder.record!(
+      entity_type: "trip",
+      entity_id: trip.id,
+      trip: trip,
+      deleted_by_user: user,
+      deleted_by_device: device,
+      reason: "deleted",
+      revision: trip.revision
+    )
+
+    get "/api/v1/sync", headers: bearer(token), as: :json
+
+    assert_response :success
+    assert response.parsed_body.fetch("deleted_records").any? { |record| record["entity_type"] == "trip" && record["entity_id"] == trip.id }
+  end
+
   test "invite acceptance creates membership and removed member receives tombstone" do
     owner_token = authenticated_token(email: "owner@example.com", full_name: "Owner Field")
     owner_device = register_device(owner_token, local_id: "owner-device").fetch("id")

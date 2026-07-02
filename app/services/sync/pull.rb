@@ -56,7 +56,7 @@ module Sync
 
     def deleted_records_for(event)
       DeletedRecord.where(entity_type: event.entity_type, entity_id: event.entity_id)
-                   .select { |record| record.user_id == @user.id || (record.trip_id && TripMember.active.exists?(trip_id: record.trip_id, user: @user)) }
+                   .select { |record| record.user_id == @user.id || @access_scope.active_trip?(record.trip_id) }
     end
 
     def serialize_unique(records)

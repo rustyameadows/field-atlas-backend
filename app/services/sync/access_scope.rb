@@ -15,7 +15,15 @@ module Sync
     end
 
     def active_trip_ids
-      @active_trip_ids ||= TripMember.active.where(user: @user).select(:trip_id)
+      @active_trip_ids ||= Trip.active.where(owner_user: @user)
+                         .or(Trip.active.where(id: TripMember.active.where(user: @user).select(:trip_id)))
+                         .select(:id)
+    end
+
+    def active_trip?(trip_id)
+      return false if trip_id.blank?
+
+      active_trip_ids.exists?(id: trip_id)
     end
 
     def visible_records

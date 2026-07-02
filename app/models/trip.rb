@@ -19,15 +19,19 @@ class Trip < ApplicationRecord
     members.active.find_by(user: user)
   end
 
+  def owned_by?(user)
+    user.present? && owner_user_id == user.id && deleted_at.nil?
+  end
+
   def readable_by?(user)
-    active_member_for(user).present?
+    owned_by?(user) || active_member_for(user).present?
   end
 
   def editable_by?(user)
-    active_member_for(user)&.editor_or_owner?
+    owned_by?(user) || active_member_for(user)&.editor_or_owner?
   end
 
   def manageable_by?(user)
-    active_member_for(user)&.owner?
+    owned_by?(user) || active_member_for(user)&.owner?
   end
 end
