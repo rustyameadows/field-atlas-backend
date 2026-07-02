@@ -42,6 +42,30 @@ Use `http://127.0.0.1:3000` from the iOS Simulator. For a physical device, bind 
 NPS_API_KEY=your_key_here bin/rails server -b 0.0.0.0 -p 3000
 ```
 
+## Render Deployment
+
+The app is prepared for a Git-backed Render Blueprint using
+[`render.yaml`](render.yaml). The Blueprint provisions one Ruby web service and
+one PostgreSQL/PostGIS database. Solid Cache, Solid Queue, and Solid Cable use
+the primary database tables created by the normal Rails migrations.
+
+Before deploying, commit and push the Blueprint to the branch Render should
+deploy. Then open:
+
+```text
+https://dashboard.render.com/blueprint/new?repo=https://github.com/rustyameadows/field-atlas-backend
+```
+
+In the Render Dashboard, fill the secret env vars marked `sync: false`:
+
+- `RAILS_MASTER_KEY`
+- `NPS_API_KEY`
+- `FIELD_ATLAS_INVITE_HOST`
+
+The web service uses `/up` as its health check. The free-compatible build path
+runs `bin/render-build.sh`, which installs gems, precompiles assets, and runs
+database migrations.
+
 ## Places API
 
 Place category conventions live in
