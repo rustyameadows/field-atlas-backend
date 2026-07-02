@@ -1,4 +1,5 @@
 require "test_helper"
+require "digest"
 require "jwt"
 require "openssl"
 
@@ -77,6 +78,41 @@ class Auth::AppleIdentityVerifierTest < ActiveSupport::TestCase
     assert_match(/sub/i, error.message)
   end
 
+  test "raw nonce is hashed and matched against token nonce claim" do
+    stub_jwks(@key, @kid)
+    raw_nonce = "raw-nonce-from-ios"
+
+    claims = @verifier.verify(
+      identity_token: apple_token(nonce: Digest::SHA256.hexdigest(raw_nonce)),
+      nonce: raw_nonce
+    )
+
+    assert_equal Digest::SHA256.hexdigest(raw_nonce), claims.fetch("nonce")
+  end
+
+  test "nonce mismatch is rejected" do
+    stub_jwks(@key, @kid)
+
+    error = assert_raises(Auth::AppleIdentityVerifier::VerificationError) do
+      @verifier.verify(
+        identity_token: apple_token(nonce: Digest::SHA256.hexdigest("different-raw-nonce")),
+        nonce: "raw-nonce-from-ios"
+      )
+    end
+
+    assert_match(/nonce/i, error.message)
+  end
+
+  test "missing token nonce is rejected when raw nonce is supplied" do
+    stub_jwks(@key, @kid)
+
+    error = assert_raises(Auth::AppleIdentityVerifier::VerificationError) do
+      @verifier.verify(identity_token: apple_token, nonce: "raw-nonce-from-ios")
+    end
+
+    assert_match(/nonce/i, error.message)
+  end
+
   test "rotated signing key refreshes jwks once" do
     stale_key = OpenSSL::PKey::RSA.generate(2048)
     stale_kid = "stale-key"
@@ -128,13 +164,14 @@ class Auth::AppleIdentityVerifierTest < ActiveSupport::TestCase
 
   private
 
-  def apple_token(sub: "apple-user-1", aud: AUDIENCE, iss: ISSUER, exp: 1.hour.from_now.to_i, kid: @kid, key: @key)
+  def apple_token(sub: "apple-user-1", aud: AUDIENCE, iss: ISSUER, exp: 1.hour.from_now.to_i, nonce: nil, kid: @kid, key: @key)
     payload = {
       "iss" => iss,
       "aud" => aud,
       "exp" => exp,
       "iat" => Time.current.to_i,
       "sub" => sub,
+      "nonce" => nonce,
       "email" => "avery@example.com",
       "email_verified" => "true"
     }.compact

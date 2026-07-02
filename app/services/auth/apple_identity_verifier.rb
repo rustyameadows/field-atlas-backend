@@ -1,3 +1,5 @@
+require "digest"
+
 module Auth
   class AppleIdentityVerifier
     class VerificationError < StandardError; end
@@ -14,21 +16,22 @@ module Auth
       @allow_fake_tokens = allow_fake_tokens
     end
 
-    def verify(identity_token:, email: nil, full_name: nil)
+    def verify(identity_token:, nonce: nil, email: nil, full_name: nil)
       raise VerificationError, "identity_token is required" if identity_token.blank?
 
-      return fake_claims(identity_token, email, full_name) if @allow_fake_tokens
+      return fake_claims(identity_token, nonce, email, full_name) if @allow_fake_tokens
 
-      verify_with_jwt!(identity_token)
+      verify_with_jwt!(identity_token, nonce: nonce)
     end
 
     private
 
-    def fake_claims(identity_token, email, full_name)
+    def fake_claims(identity_token, nonce, email, full_name)
       {
         "iss" => @issuer,
         "aud" => @audience,
         "sub" => identity_token,
+        "nonce" => nonce_digest(nonce),
         "email" => email,
         "email_verified" => email.present?,
         "name" => full_name,
@@ -36,15 +39,15 @@ module Auth
       }
     end
 
-    def verify_with_jwt!(identity_token)
+    def verify_with_jwt!(identity_token, nonce:)
       require "jwt"
 
-      decode_with_jwks(identity_token, fetch_jwks)
+      decode_with_jwks(identity_token, fetch_jwks, nonce: nonce)
     rescue JWT::DecodeError => e
       raise verification_error(e) unless key_rotation_error?(e)
 
       begin
-        decode_with_jwks(identity_token, fetch_jwks(force: true))
+        decode_with_jwks(identity_token, fetch_jwks(force: true), nonce: nonce)
       rescue JWT::DecodeError => retry_error
         raise verification_error(retry_error)
       end
@@ -54,7 +57,7 @@ module Auth
       raise VerificationError, e.message
     end
 
-    def decode_with_jwks(identity_token, jwks)
+    def decode_with_jwks(identity_token, jwks, nonce:)
       payload, = JWT.decode(
         identity_token,
         nil,
@@ -67,16 +70,30 @@ module Auth
         jwks: jwks
       )
 
-      validate_payload!(payload)
+      validate_payload!(payload, nonce: nonce)
       payload
     end
 
-    def validate_payload!(payload)
+    def validate_payload!(payload, nonce:)
       raise VerificationError, "iss is invalid" unless payload["iss"] == @issuer
       raise VerificationError, "aud is invalid" unless Array(payload["aud"]).include?(@audience)
       raise VerificationError, "exp is required" if payload["exp"].blank?
       raise VerificationError, "exp has expired" unless Time.at(payload["exp"].to_i).future?
       raise VerificationError, "sub is required" if payload["sub"].blank?
+      validate_nonce!(payload.fetch("nonce", nil), nonce) if nonce.present?
+    end
+
+    def validate_nonce!(token_nonce, raw_nonce)
+      expected_nonce = nonce_digest(raw_nonce)
+      raise VerificationError, "nonce is required" if token_nonce.blank?
+
+      unless ActiveSupport::SecurityUtils.secure_compare(token_nonce, expected_nonce)
+        raise VerificationError, "nonce is invalid"
+      end
+    end
+
+    def nonce_digest(raw_nonce)
+      Digest::SHA256.hexdigest(raw_nonce.to_s) if raw_nonce.present?
     end
 
     def fetch_jwks(force: false)

@@ -1,4 +1,5 @@
 require "test_helper"
+require "digest"
 
 class FieldAtlasDataApiTest < ActionDispatch::IntegrationTest
   setup do
@@ -96,6 +97,18 @@ class FieldAtlasDataApiTest < ActionDispatch::IntegrationTest
 
     refute_equal first_user_id, response.parsed_body.dig("user", "id")
     assert_equal 2, UserAuthIdentity.where(provider: "apple", email: "shared@example.com").count
+  end
+
+  test "apple auth accepts raw nonce and stores hashed nonce claim" do
+    post "/api/v1/auth/apple", params: @auth_payload.merge(
+      identity_token: "apple-subject-with-nonce",
+      nonce: "raw-nonce-from-ios"
+    ), as: :json
+
+    assert_response :created
+    identity = UserAuthIdentity.find_by!(provider: "apple", provider_subject: "apple-subject-with-nonce")
+
+    assert_equal Digest::SHA256.hexdigest("raw-nonce-from-ios"), identity.raw_claims.fetch("nonce")
   end
 
   test "dev auth returns an authenticated local user session and device without apple token" do

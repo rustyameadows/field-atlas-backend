@@ -536,6 +536,7 @@ Current client request body:
 {
   "identity_token": "apple-jwt",
   "authorization_code": "optional-code",
+  "nonce": "raw-nonce-sent-to-rails",
   "full_name": "Avery Field",
   "email": "avery@example.com",
   "device_name": "Avery's iPhone"
@@ -546,7 +547,8 @@ Backend behavior:
 
 1. Verify Apple's identity token.
 2. Validate issuer, audience, expiration, issued-at, and subject.
-3. Validate nonce if the client supplies one in a later iteration.
+3. If the client supplies `nonce`, SHA-256 hash the raw nonce and compare it to
+   the identity token's `nonce` claim.
 4. Find or create `user_auth_identities(provider: "apple", provider_subject:
    sub)`.
 5. Find or create the associated `user`.

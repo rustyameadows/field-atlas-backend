@@ -5,6 +5,7 @@ module Api
         def create
           claims = ::Auth::AppleIdentityVerifier.new.verify(
             identity_token: params[:identity_token],
+            nonce: params[:nonce],
             email: params[:email],
             full_name: params[:full_name]
           )
