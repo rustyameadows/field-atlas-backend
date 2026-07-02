@@ -36,6 +36,13 @@ class FieldAtlasContractFixturesTest < ActiveSupport::TestCase
     end
   end
 
+  test "apple auth fixture uses apple subject as the stable identifier" do
+    fixture = fixture_json("auth_apple_response.json")
+
+    assert_equal "apple-user-fixture-1", fixture.dig("user", "apple_user_identifier")
+    refute_equal fixture.dig("user", "email"), fixture.dig("user", "apple_user_identifier")
+  end
+
   test "sync fixtures use canonical pull envelope" do
     %w[sync_initial_response.json sync_incremental_response.json sync_access_revoked_response.json].each do |filename|
       fixture = fixture_json(filename)

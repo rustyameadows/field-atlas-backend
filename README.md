@@ -62,6 +62,18 @@ In the Render Dashboard, fill the secret env vars marked `sync: false`:
 - `NPS_API_KEY`
 - `FIELD_ATLAS_INVITE_HOST`
 
+The Blueprint also sets the non-secret Sign in with Apple values for the native
+iOS app:
+
+- `APPLE_CLIENT_ID=com.rustymeadows.DestinationApp`
+- `APPLE_ISSUER=https://appleid.apple.com`
+- `APPLE_JWKS_URL=https://appleid.apple.com/auth/keys`
+
+This backend validates the native app's Apple identity token directly. It does
+not exchange Apple authorization codes yet, so a Services ID, web redirect URL,
+`APPLE_TEAM_ID`, `APPLE_KEY_ID`, and `APPLE_PRIVATE_KEY` are not required for
+the current native iOS flow.
+
 The web service uses `/up` as its health check. The free-compatible build path
 runs `bin/render-build.sh`, which installs gems, precompiles assets, and runs
 database migrations.
