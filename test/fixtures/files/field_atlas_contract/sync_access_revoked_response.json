@@ -1,0 +1,18 @@
+{
+  "changes": [],
+  "deleted_records": [
+    {
+      "id": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+      "entity_type": "trip",
+      "entity_id": "44444444-4444-4444-8444-444444444444",
+      "trip_id": "44444444-4444-4444-8444-444444444444",
+      "user_id": "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+      "deleted_at": "2026-06-30T22:20:00Z",
+      "revision": 2,
+      "reason": "access_revoked",
+      "metadata": {}
+    }
+  ],
+  "next_cursor": "opaque-signed-cursor-3",
+  "has_more": false
+}

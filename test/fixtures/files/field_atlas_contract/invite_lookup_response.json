@@ -1,0 +1,10 @@
+{
+  "invite": {
+    "token": "invite-token",
+    "trip_title": "Austin to Marfa",
+    "inviter_display_name": "Avery Field",
+    "role": "editor",
+    "status": "pending",
+    "expires_at": "2026-07-01T22:00:00Z"
+  }
+}

@@ -1,0 +1,26 @@
+{
+  "results": [
+    {
+      "operation_id": "op-workspace-1",
+      "status": "accepted",
+      "entity_type": "trip",
+      "entity_id": "local-trip-1",
+      "server_id": "44444444-4444-4444-8444-444444444444",
+      "revision": 1,
+      "mappings": [
+        {
+          "entity_type": "trip",
+          "entity_id": "local-trip-1",
+          "server_id": "44444444-4444-4444-8444-444444444444",
+          "revision": 1
+        },
+        {
+          "entity_type": "trip_stop",
+          "entity_id": "local-stop-1",
+          "server_id": "55555555-5555-4555-8555-555555555555",
+          "revision": 1
+        }
+      ]
+    }
+  ]
+}

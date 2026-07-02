@@ -1,0 +1,15 @@
+{
+  "member": {
+    "id": "dddddddd-dddd-4ddd-8ddd-dddddddddddd",
+    "trip_id": "44444444-4444-4444-8444-444444444444",
+    "user_id": "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+    "display_name": "Guest Field",
+    "role": "editor",
+    "status": "removed",
+    "joined_at": "2026-06-30T22:10:00Z",
+    "deleted_at": "2026-06-30T22:20:00Z",
+    "revision": 2,
+    "created_at": "2026-06-30T22:10:00Z",
+    "updated_at": "2026-06-30T22:20:00Z"
+  }
+}

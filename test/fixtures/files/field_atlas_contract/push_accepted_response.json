@@ -1,0 +1,13 @@
+{
+  "results": [
+    {
+      "operation_id": "op-accepted-1",
+      "status": "accepted",
+      "entity_type": "trip",
+      "entity_id": "local-trip-1",
+      "server_id": "44444444-4444-4444-8444-444444444444",
+      "revision": 1,
+      "mappings": []
+    }
+  ]
+}
