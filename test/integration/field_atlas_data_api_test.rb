@@ -20,6 +20,7 @@ class FieldAtlasDataApiTest < ActionDispatch::IntegrationTest
     assert_equal "Avery Field", auth.dig("user", "display_name")
     assert_equal "avery@example.com", auth.dig("user", "email")
     assert_equal "test.identity.token", auth.dig("user", "apple_user_identifier")
+    assert_equal false, auth.dig("user", "is_admin")
     assert_match(/\A[0-9a-f-]{36}\z/, auth.dig("user", "id"))
     assert auth.dig("session", "access_token").present?
     assert auth.dig("session", "refresh_token").present?
@@ -43,6 +44,13 @@ class FieldAtlasDataApiTest < ActionDispatch::IntegrationTest
 
     assert_response :success
     assert_equal auth.dig("user", "id"), response.parsed_body.dig("user", "id")
+
+    User.find(auth.dig("user", "id")).update!(admin: true)
+
+    get "/api/v1/me", headers: bearer(token), as: :json
+
+    assert_response :success
+    assert_equal true, response.parsed_body.dig("user", "is_admin")
   end
 
   test "apple auth can bootstrap a device in one response for the consuming app" do

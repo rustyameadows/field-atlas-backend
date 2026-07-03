@@ -1,6 +1,6 @@
 Rails.application.routes.draw do
   root "places#index"
-  resources :users, only: :index
+  resources :users, only: [ :index, :update ]
 
   namespace :api, defaults: { format: :json } do
     namespace :v1 do

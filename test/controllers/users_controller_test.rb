@@ -23,5 +23,20 @@ class UsersControllerTest < ActionDispatch::IntegrationTest
     assert_select "td", text: "Yes"
     assert_select "td", text: "2"
     assert_select "td", text: "1"
+    assert_select "input[type=checkbox][name='user[admin]']"
+  end
+
+  test "dashboard can update the admin flag" do
+    user = User.create!(
+      display_name: "Casey Admin",
+      email: "casey@example.com",
+      email_verified: true,
+      status: "active"
+    )
+
+    patch user_path(user), params: { user: { admin: "1" } }
+
+    assert_redirected_to users_path
+    assert_equal true, user.reload.admin?
   end
 end
