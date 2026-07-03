@@ -2,6 +2,11 @@ module Api
   module V1
     class BaseController < ActionController::API
       class AuthenticationError < StandardError; end
+      class ForbiddenError < StandardError; end
+
+      rescue_from ForbiddenError do |error|
+        render_error("forbidden", error.message.presence || "You do not have permission to perform this action.", status: :forbidden)
+      end
 
       rescue_from AuthenticationError do
         render_error("unauthorized", "Authentication is required.", status: :unauthorized)

@@ -402,6 +402,183 @@ class FieldAtlasDataApiTest < ActionDispatch::IntegrationTest
     assert changes.any? { |record| record["type"] == "user_setting" && record.dig("attributes", "key") == "distance_units" }
   end
 
+  test "asset upload intent creates awaiting asset link and complete marks it ready" do
+    token = authenticated_token(email: "asset-owner@example.com", full_name: "Asset Owner")
+    user = User.find_by!(email: "asset-owner@example.com")
+    device_id = register_device(token, local_id: "asset-owner-device").fetch("id")
+    trip_id = create_trip(token, device_id)
+    fake_r2 = FakeR2Client.new(byte_size: 12_345, mime_type: "image/jpeg")
+
+    with_fake_r2(fake_r2) do
+      post "/api/v1/assets/upload_intents", params: {
+        asset: {
+          client_id: "local-asset-1",
+          asset_kind: "image",
+          mime_type: "image/jpeg",
+          original_filename: "trail.jpg",
+          byte_size: 12_345,
+          checksum: "sha256:test"
+        },
+        links: [
+          {
+            attachable_type: "Trip",
+            attachable_id: trip_id,
+            role: "cover"
+          }
+        ]
+      }, headers: bearer(token), as: :json
+    end
+
+    assert_response :created
+    body = response.parsed_body
+    assert_equal "awaiting_upload", body.dig("asset", "status")
+    assert_equal user.id, body.dig("asset", "uploaded_by_user_id")
+    assert_equal "PUT", body.dig("upload", "method")
+    assert_equal "image/jpeg", body.dig("upload", "headers", "Content-Type")
+    assert_equal "Trip", body.dig("links", 0, "attachable_type")
+    assert_equal trip_id, body.dig("links", 0, "attachable_id")
+
+    asset_id = body.dig("asset", "id")
+    fake_r2 = FakeR2Client.new(byte_size: 12_345, mime_type: "image/jpeg")
+    with_fake_r2(fake_r2) do
+      post "/api/v1/assets/#{asset_id}/complete", headers: bearer(token), as: :json
+    end
+
+    assert_response :success
+    assert_equal "ready", response.parsed_body.dig("asset", "status")
+
+    get "/api/v1/sync", headers: bearer(token), as: :json
+    assert_response :success
+    changes = response.parsed_body.fetch("changes")
+    assert changes.any? { |record| record["type"] == "asset" && record["id"] == asset_id && record.dig("attributes", "status") == "ready" }
+    assert changes.any? { |record| record["type"] == "asset_link" && record.dig("attributes", "asset_id") == asset_id }
+  end
+
+  test "user place asset links stay in that user's sync context" do
+    owner_token = authenticated_token(email: "place-asset-owner@example.com", full_name: "Place Owner")
+    other_token = authenticated_token(email: "place-asset-other@example.com", full_name: "Place Other")
+    place = create_place_record(slug: "asset-place")
+    fake_r2 = FakeR2Client.new(byte_size: 2_048, mime_type: "image/jpeg")
+
+    with_fake_r2(fake_r2) do
+      post "/api/v1/assets/upload_intents", params: {
+        asset: {
+          client_id: "local-place-photo",
+          asset_kind: "image",
+          mime_type: "image/jpeg",
+          original_filename: "place.jpg",
+          byte_size: 2_048
+        },
+        links: [
+          {
+            attachable_type: "Place",
+            attachable_id: place.id.to_s,
+            role: "gallery"
+          }
+        ]
+      }, headers: bearer(owner_token), as: :json
+    end
+
+    assert_response :created
+    asset_id = response.parsed_body.dig("asset", "id")
+    link_id = response.parsed_body.dig("links", 0, "id")
+
+    get "/api/v1/sync", headers: bearer(owner_token), as: :json
+    assert_response :success
+    assert response.parsed_body.fetch("changes").any? { |record| record["type"] == "asset_link" && record["id"] == link_id }
+
+    get "/api/v1/sync", headers: bearer(other_token), as: :json
+    assert_response :success
+    refute response.parsed_body.fetch("changes").any? { |record| record["type"] == "asset" && record["id"] == asset_id }
+    refute response.parsed_body.fetch("changes").any? { |record| record["type"] == "asset_link" && record["id"] == link_id }
+  end
+
+  test "shared trip members can download trip assets but non members cannot" do
+    owner_token = authenticated_token(email: "trip-asset-owner@example.com", full_name: "Trip Asset Owner")
+    owner = User.find_by!(email: "trip-asset-owner@example.com")
+    owner_device = register_device(owner_token, local_id: "trip-asset-owner-device").fetch("id")
+    trip_id = create_trip(owner_token, owner_device)
+    guest_token = authenticated_token(email: "trip-asset-guest@example.com", full_name: "Trip Asset Guest")
+    guest = User.find_by!(email: "trip-asset-guest@example.com")
+    non_member_token = authenticated_token(email: "trip-asset-nonmember@example.com", full_name: "Trip Asset Nonmember")
+    trip = Trip.find(trip_id)
+    TripMember.create!(trip: trip, user: guest, role: "viewer", status: "active", display_name: guest.display_name, joined_at: Time.current)
+    fake_r2 = FakeR2Client.new(byte_size: 4_096, mime_type: "video/mp4")
+
+    with_fake_r2(fake_r2) do
+      post "/api/v1/assets/upload_intents", params: {
+        asset: {
+          client_id: "local-cover-loop",
+          asset_kind: "video",
+          mime_type: "video/mp4",
+          original_filename: "cover-loop.mp4",
+          byte_size: 4_096
+        },
+        links: [
+          {
+            attachable_type: "Trip",
+            attachable_id: trip_id,
+            role: "cover_loop"
+          }
+        ]
+      }, headers: bearer(owner_token), as: :json
+    end
+
+    assert_response :created
+    asset_id = response.parsed_body.dig("asset", "id")
+    Asset.find(asset_id).update!(status: "ready")
+
+    with_fake_r2(fake_r2) do
+      post "/api/v1/assets/download_intents", params: { asset_ids: [ asset_id ] }, headers: bearer(guest_token), as: :json
+    end
+
+    assert_response :success
+    assert_equal asset_id, response.parsed_body.dig("downloads", 0, "asset_id")
+    assert_equal "GET", response.parsed_body.dig("downloads", 0, "method")
+
+    with_fake_r2(fake_r2) do
+      post "/api/v1/assets/download_intents", params: { asset_ids: [ asset_id ] }, headers: bearer(non_member_token), as: :json
+    end
+
+    assert_response :not_found
+    assert_equal owner.id, Asset.find(asset_id).uploaded_by_user_id
+  end
+
+  test "deleting asset links creates sync tombstones" do
+    token = authenticated_token(email: "asset-delete@example.com", full_name: "Asset Delete")
+    device_id = register_device(token, local_id: "asset-delete-device").fetch("id")
+    trip_id = create_trip(token, device_id)
+    fake_r2 = FakeR2Client.new(byte_size: 1_024, mime_type: "image/jpeg")
+
+    with_fake_r2(fake_r2) do
+      post "/api/v1/assets/upload_intents", params: {
+        asset: {
+          asset_kind: "image",
+          mime_type: "image/jpeg",
+          original_filename: "delete.jpg",
+          byte_size: 1_024
+        },
+        links: [
+          {
+            attachable_type: "Trip",
+            attachable_id: trip_id,
+            role: "gallery"
+          }
+        ]
+      }, headers: bearer(token), as: :json
+    end
+
+    assert_response :created
+    link_id = response.parsed_body.dig("links", 0, "id")
+
+    delete "/api/v1/asset_links/#{link_id}", headers: bearer(token), as: :json
+    assert_response :success
+
+    get "/api/v1/sync", headers: bearer(token), as: :json
+    assert_response :success
+    assert response.parsed_body.fetch("deleted_records").any? { |record| record["entity_type"] == "asset_link" && record["entity_id"] == link_id }
+  end
+
   test "route snapshots store child stops legs and steps" do
     token = authenticated_token
     device_id = register_device(token).fetch("id")
@@ -630,5 +807,54 @@ class FieldAtlasDataApiTest < ActionDispatch::IntegrationTest
 
   def bearer(token)
     { "Authorization" => "Bearer #{token}" }
+  end
+
+  def create_place_record(slug:)
+    Place.create!(
+      name: "Asset Place",
+      slug: slug,
+      kind: "poi",
+      status: "published"
+    )
+  end
+
+  def with_fake_r2(fake_r2)
+    previous_factory = Api::V1::AssetsController.r2_client_factory
+    Api::V1::AssetsController.r2_client_factory = -> { fake_r2 }
+    yield
+  ensure
+    Api::V1::AssetsController.r2_client_factory = previous_factory
+  end
+
+  class FakeR2Client
+    def initialize(byte_size:, mime_type:)
+      @byte_size = byte_size
+      @mime_type = mime_type
+    end
+
+    def presigned_upload(storage_key:, content_type:, expires_in: 900)
+      {
+        method: "PUT",
+        url: "https://r2.example.test/#{storage_key}?signature=upload",
+        headers: { "Content-Type" => content_type },
+        expires_at: expires_in.seconds.from_now
+      }
+    end
+
+    def presigned_download(storage_key:, expires_in: 900)
+      {
+        method: "GET",
+        url: "https://r2.example.test/#{storage_key}?signature=download",
+        headers: {},
+        expires_at: expires_in.seconds.from_now
+      }
+    end
+
+    def object_metadata(storage_key:)
+      {
+        byte_size: @byte_size,
+        mime_type: @mime_type
+      }
+    end
   end
 end

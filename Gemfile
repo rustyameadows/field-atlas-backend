@@ -22,6 +22,8 @@ gem "stimulus-rails"
 gem "jbuilder"
 # Verify Sign in with Apple identity tokens.
 gem "jwt", "~> 2.10"
+# Generate short-lived Cloudflare R2 upload and download URLs through the S3 API.
+gem "aws-sdk-s3", "~> 1.198"
 
 # Use Active Model has_secure_password [https://guides.rubyonrails.org/active_model_basics.html#securepassword]
 # gem "bcrypt", "~> 3.1.7"

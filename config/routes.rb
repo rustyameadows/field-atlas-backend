@@ -14,6 +14,17 @@ Rails.application.routes.draw do
       resources :devices, only: [ :create, :update ]
       get "sync", to: "sync#show"
       post "sync/operations", to: "sync_operations#create"
+      resources :assets, only: [ :destroy ] do
+        collection do
+          post "upload_intents"
+          post "download_intents"
+        end
+        member do
+          post "complete"
+        end
+        resources :links, only: [ :create ], controller: "asset_links"
+      end
+      resources :asset_links, only: [ :update, :destroy ]
       resources :trips, only: [] do
         resources :invites, only: [ :create ], controller: "trip_invites"
         resources :members, only: [ :update, :destroy ], controller: "trip_members"
