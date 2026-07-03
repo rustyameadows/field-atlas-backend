@@ -15,6 +15,7 @@
         <th>Display name</th>
         <th>Email</th>
         <th>Status</th>
+        <th>Admin</th>
         <th>Email verified</th>
         <th>Devices</th>
         <th>Owned trips</th>
@@ -28,6 +29,12 @@
           <td><%= user.display_name.presence || "-" %></td>
           <td><%= user.email.presence || "-" %></td>
           <td><%= user.status %></td>
+          <td>
+            <%= form_with model: user, method: :patch do |form| %>
+              <%= form.check_box :admin %>
+              <%= form.submit "Save" %>
+            <% end %>
+          </td>
           <td><%= user.email_verified? ? "Yes" : "No" %></td>
           <td><%= user.devices.size %></td>
           <td><%= user.owned_trips.size %></td>

@@ -5,6 +5,7 @@
     "display_name": "Avery Field",
     "email": "avery@example.com",
     "email_verified": true,
+    "is_admin": false,
     "time_zone": null,
     "status": "active",
     "revision": 1,

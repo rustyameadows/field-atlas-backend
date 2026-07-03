@@ -19,6 +19,7 @@ module Api
           display_name: user.display_name,
           email: user.email,
           email_verified: user.email_verified,
+          is_admin: user.admin?,
           time_zone: user.time_zone,
           status: user.status,
           revision: user.revision,

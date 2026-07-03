@@ -1440,7 +1440,8 @@ CREATE TABLE public.users (
     deleted_at timestamp(6) without time zone,
     revision integer DEFAULT 1 NOT NULL,
     created_at timestamp(6) without time zone NOT NULL,
-    updated_at timestamp(6) without time zone NOT NULL
+    updated_at timestamp(6) without time zone NOT NULL,
+    admin boolean DEFAULT false NOT NULL
 );
 
 
@@ -3657,6 +3658,7 @@ ALTER TABLE ONLY public.place_external_identifiers
 SET search_path TO "$user", public;
 
 INSERT INTO "schema_migrations" (version) VALUES
+('20260702020000'),
 ('20260702010000'),
 ('20260702000000'),
 ('20260630010000'),
