@@ -43,6 +43,7 @@ module Sync
         else
           record = @access_scope.visible_record(event.entity_type, event.entity_id)
           changes << record if record
+          changes << record.asset if record.is_a?(AssetLink) && @access_scope.visible?(record.asset)
         end
       end
 

@@ -18,6 +18,14 @@ services:
         sync: false
       - key: FIELD_ATLAS_INVITE_HOST
         sync: false
+      - key: CLOUDFLARE_R2_ACCOUNT_ID
+        sync: false
+      - key: CLOUDFLARE_R2_ACCESS_KEY_ID
+        sync: false
+      - key: CLOUDFLARE_R2_SECRET_ACCESS_KEY
+        sync: false
+      - key: CLOUDFLARE_R2_BUCKET
+        sync: false
       - key: APPLE_CLIENT_ID
         value: "com.rustymeadows.DestinationApp"
       - key: APPLE_ISSUER

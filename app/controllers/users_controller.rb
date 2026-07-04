@@ -7,13 +7,13 @@ class UsersController < ApplicationController
 
   def update
     user = User.find(params[:id])
-    user.update!(user_params)
+    user.update!(admin: admin_param)
     redirect_to users_path
   end
 
   private
 
-  def user_params
-    params.require(:user).permit(:admin)
+  def admin_param
+    ActiveModel::Type::Boolean.new.cast(params.require(:user).fetch(:admin))
   end
 end

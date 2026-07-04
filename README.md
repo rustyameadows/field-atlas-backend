@@ -61,6 +61,10 @@ In the Render Dashboard, fill the secret env vars marked `sync: false`:
 - `RAILS_MASTER_KEY`
 - `NPS_API_KEY`
 - `FIELD_ATLAS_INVITE_HOST`
+- `CLOUDFLARE_R2_ACCOUNT_ID`
+- `CLOUDFLARE_R2_ACCESS_KEY_ID`
+- `CLOUDFLARE_R2_SECRET_ACCESS_KEY`
+- `CLOUDFLARE_R2_BUCKET`
 
 The Blueprint also sets the non-secret Sign in with Apple values for the native
 iOS app:
@@ -77,6 +81,44 @@ the current native iOS flow.
 The web service uses `/up` as its health check. The free-compatible build path
 runs `bin/render-build.sh`, which installs gems, precompiles assets, and runs
 database migrations.
+
+## Asset Uploads API
+
+User media and files use Cloudflare R2 direct uploads. Rails stores asset
+metadata and generic links to app objects; uploaded bytes go directly from the
+iOS app to R2 using short-lived presigned URLs.
+
+Create an upload intent:
+
+```bash
+curl -X POST "http://127.0.0.1:3000/api/v1/assets/upload_intents" \
+  -H "Authorization: Bearer $FIELD_ATLAS_ACCESS_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"asset":{"client_id":"local-asset-1","asset_kind":"image","mime_type":"image/jpeg","original_filename":"trail.jpg","byte_size":12345},"links":[{"attachable_type":"Trip","attachable_id":"trip-server-id","role":"cover"}]}'
+```
+
+The response includes `asset`, `links`, and an `upload` object with a `PUT` URL
+and required headers. After the app uploads the bytes to R2, complete the asset:
+
+```bash
+curl -X POST "http://127.0.0.1:3000/api/v1/assets/$ASSET_ID/complete" \
+  -H "Authorization: Bearer $FIELD_ATLAS_ACCESS_TOKEN"
+```
+
+Download URLs are intentionally separate from sync responses because they
+expire:
+
+```bash
+curl -X POST "http://127.0.0.1:3000/api/v1/assets/download_intents" \
+  -H "Authorization: Bearer $FIELD_ATLAS_ACCESS_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"asset_ids":["asset-server-id"]}'
+```
+
+Supported link targets for v1 are `Trip`, `TripStop`, `PlaceList`,
+`PlaceListItem`, `FavoritePlace`, `Place`, and `DriveSession`. Visibility is
+resolved from the linked app object. A user can attach their own asset to a
+canonical `Place`; that does not make the asset public or editorial.
 
 ## Places API
 

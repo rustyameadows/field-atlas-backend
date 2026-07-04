@@ -105,6 +105,64 @@ module Api
         }
       end
 
+      def asset(asset)
+        {
+          id: asset.id,
+          server_id: asset.id,
+          client_id: asset.client_id,
+          uploaded_by_user_id: asset.uploaded_by_user_id,
+          asset_kind: asset.asset_kind,
+          mime_type: asset.mime_type,
+          original_filename: asset.original_filename,
+          byte_size: asset.byte_size,
+          checksum: asset.checksum,
+          storage_provider: asset.storage_provider,
+          storage_key: asset.storage_key,
+          width: asset.width,
+          height: asset.height,
+          duration_ms: asset.duration_ms,
+          status: asset.status,
+          metadata: asset.metadata || {},
+          deleted_at: iso(asset.deleted_at),
+          revision: asset.revision,
+          created_at: iso(asset.created_at),
+          updated_at: iso(asset.updated_at)
+        }
+      end
+
+      def asset_link(link)
+        {
+          id: link.id,
+          server_id: link.id,
+          asset_id: link.asset_id,
+          created_by_user_id: link.created_by_user_id,
+          attachable_type: link.attachable_type,
+          attachable_id: link.attachable_id,
+          attachable_ref: link.attachable_ref || {},
+          role: link.role,
+          caption: link.caption,
+          sort_order: link.sort_order,
+          metadata: link.metadata || {},
+          deleted_at: iso(link.deleted_at),
+          revision: link.revision,
+          created_at: iso(link.created_at),
+          updated_at: iso(link.updated_at)
+        }
+      end
+
+      def transfer_intent(intent)
+        {
+          method: intent.fetch(:method),
+          url: intent.fetch(:url),
+          headers: intent.fetch(:headers),
+          expires_at: iso(intent.fetch(:expires_at))
+        }
+      end
+
+      def download_intent(asset, intent)
+        transfer_intent(intent).merge(asset_id: asset.id)
+      end
+
       def deleted_record(record)
         {
           id: record.id,

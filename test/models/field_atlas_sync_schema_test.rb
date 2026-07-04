@@ -7,7 +7,7 @@ class FieldAtlasSyncSchemaTest < ActiveSupport::TestCase
     route_snapshots route_snapshot_stops route_legs route_steps
     favorite_places place_lists place_list_items search_history_entries
     search_sessions search_result_snapshots user_settings memory_assets
-    drive_sessions client_operations sync_events deleted_records
+    drive_sessions assets asset_links client_operations sync_events deleted_records
   ].freeze
 
   test "sync tables exist" do

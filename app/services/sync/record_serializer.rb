@@ -21,7 +21,9 @@ module Sync
       "search_result_snapshot" => "SearchResultSnapshot",
       "user_setting" => "UserSetting",
       "memory_asset" => "MemoryAsset",
-      "drive_session" => "DriveSession"
+      "drive_session" => "DriveSession",
+      "asset" => "Asset",
+      "asset_link" => "AssetLink"
     }.freeze
 
     CLASS_TYPES = TYPE_CLASS_NAMES.to_h { |type, class_name| [ class_name, type ] }.freeze
@@ -40,6 +42,8 @@ module Sync
         record
       when TripMember, TripInvite, TripSegment, TripStop, TripStopOptionLink, RouteSnapshot, MemoryAsset, DriveSession
         record.trip
+      when AssetLink
+        Assets::AttachableResolver.trip_for_link(record)
       when RouteSnapshotStop, RouteLeg
         record.route_snapshot.trip
       when RouteStep
@@ -53,6 +57,10 @@ module Sync
         record
       when Device, FavoritePlace, PlaceList, SearchHistoryEntry, SearchSession, UserSetting, MemoryAsset, DriveSession
         record.user
+      when Asset
+        record.uploaded_by_user
+      when AssetLink
+        Assets::AttachableResolver.new(user: nil).owner_user_for(record)
       when PlaceListItem
         record.place_list.user
       end
@@ -120,6 +128,10 @@ module Sync
         record.slice(:user_id, :trip_id, :drive_session_id, :client_id, :kind, :title, :local_file_name, :transcript, :transcript_status, :encoded_asset, :client_payload)
       when DriveSession
         record.slice(:user_id, :trip_id, :route_snapshot_id, :client_id, :started_at, :ended_at, :encoded_session, :client_payload)
+      when Asset
+        record.slice(:uploaded_by_user_id, :client_id, :asset_kind, :mime_type, :original_filename, :byte_size, :checksum, :storage_provider, :storage_key, :width, :height, :duration_ms, :status, :metadata)
+      when AssetLink
+        record.slice(:asset_id, :created_by_user_id, :attachable_type, :attachable_id, :attachable_ref, :role, :caption, :sort_order, :metadata)
       else
         {}
       end.transform_values { |value| normalize_value(value) }

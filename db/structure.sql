@@ -173,6 +173,55 @@ CREATE TABLE public.ar_internal_metadata (
 
 
 --
+-- Name: asset_links; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.asset_links (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    asset_id uuid NOT NULL,
+    created_by_user_id uuid NOT NULL,
+    attachable_type character varying NOT NULL,
+    attachable_id character varying,
+    attachable_ref jsonb DEFAULT '{}'::jsonb NOT NULL,
+    role character varying DEFAULT 'gallery'::character varying NOT NULL,
+    caption text,
+    sort_order double precision DEFAULT 0.0 NOT NULL,
+    metadata jsonb DEFAULT '{}'::jsonb NOT NULL,
+    revision integer DEFAULT 1 NOT NULL,
+    deleted_at timestamp(6) without time zone,
+    created_at timestamp(6) without time zone NOT NULL,
+    updated_at timestamp(6) without time zone NOT NULL
+);
+
+
+--
+-- Name: assets; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.assets (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    uploaded_by_user_id uuid NOT NULL,
+    client_id character varying,
+    asset_kind character varying NOT NULL,
+    mime_type character varying NOT NULL,
+    original_filename character varying,
+    byte_size bigint DEFAULT 0 NOT NULL,
+    checksum character varying,
+    storage_provider character varying DEFAULT 'r2'::character varying NOT NULL,
+    storage_key character varying NOT NULL,
+    width integer,
+    height integer,
+    duration_ms integer,
+    status character varying DEFAULT 'awaiting_upload'::character varying NOT NULL,
+    metadata jsonb DEFAULT '{}'::jsonb NOT NULL,
+    revision integer DEFAULT 1 NOT NULL,
+    deleted_at timestamp(6) without time zone,
+    created_at timestamp(6) without time zone NOT NULL,
+    updated_at timestamp(6) without time zone NOT NULL
+);
+
+
+--
 -- Name: client_operations; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -1654,6 +1703,22 @@ ALTER TABLE ONLY public.ar_internal_metadata
 
 
 --
+-- Name: asset_links asset_links_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.asset_links
+    ADD CONSTRAINT asset_links_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: assets assets_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.assets
+    ADD CONSTRAINT assets_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: client_operations client_operations_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -2022,6 +2087,13 @@ ALTER TABLE ONLY public.users
 
 
 --
+-- Name: idx_asset_links_attachable_role_deleted_sort; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_asset_links_attachable_role_deleted_sort ON public.asset_links USING btree (attachable_type, attachable_id, role, deleted_at, sort_order);
+
+
+--
 -- Name: idx_auth_identities_provider_subject; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -2103,6 +2175,76 @@ CREATE UNIQUE INDEX index_api_sessions_on_refresh_token_digest ON public.api_ses
 --
 
 CREATE INDEX index_api_sessions_on_user_id ON public.api_sessions USING btree (user_id);
+
+
+--
+-- Name: index_asset_links_on_asset_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_asset_links_on_asset_id ON public.asset_links USING btree (asset_id);
+
+
+--
+-- Name: index_asset_links_on_created_by_user_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_asset_links_on_created_by_user_id ON public.asset_links USING btree (created_by_user_id);
+
+
+--
+-- Name: index_asset_links_on_created_by_user_id_and_created_at; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_asset_links_on_created_by_user_id_and_created_at ON public.asset_links USING btree (created_by_user_id, created_at);
+
+
+--
+-- Name: index_asset_links_on_deleted_at; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_asset_links_on_deleted_at ON public.asset_links USING btree (deleted_at);
+
+
+--
+-- Name: index_assets_on_deleted_at; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_assets_on_deleted_at ON public.assets USING btree (deleted_at);
+
+
+--
+-- Name: index_assets_on_status_and_created_at; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_assets_on_status_and_created_at ON public.assets USING btree (status, created_at);
+
+
+--
+-- Name: index_assets_on_storage_key; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX index_assets_on_storage_key ON public.assets USING btree (storage_key);
+
+
+--
+-- Name: index_assets_on_uploaded_by_user_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_assets_on_uploaded_by_user_id ON public.assets USING btree (uploaded_by_user_id);
+
+
+--
+-- Name: index_assets_on_uploaded_by_user_id_and_client_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX index_assets_on_uploaded_by_user_id_and_client_id ON public.assets USING btree (uploaded_by_user_id, client_id) WHERE (client_id IS NOT NULL);
+
+
+--
+-- Name: index_assets_on_uploaded_by_user_id_and_created_at; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_assets_on_uploaded_by_user_id_and_created_at ON public.assets USING btree (uploaded_by_user_id, created_at);
 
 
 --
@@ -3100,6 +3242,14 @@ CREATE INDEX index_users_on_status ON public.users USING btree (status);
 
 
 --
+-- Name: assets fk_rails_01f7653cb3; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.assets
+    ADD CONSTRAINT fk_rails_01f7653cb3 FOREIGN KEY (uploaded_by_user_id) REFERENCES public.users(id);
+
+
+--
 -- Name: route_steps fk_rails_033331659c; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -3292,6 +3442,14 @@ ALTER TABLE ONLY public.memory_assets
 
 
 --
+-- Name: asset_links fk_rails_5019fa73c6; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.asset_links
+    ADD CONSTRAINT fk_rails_5019fa73c6 FOREIGN KEY (asset_id) REFERENCES public.assets(id);
+
+
+--
 -- Name: place_list_items fk_rails_561365e757; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -3433,6 +3591,14 @@ ALTER TABLE ONLY public.active_storage_variant_records
 
 ALTER TABLE ONLY public.solid_queue_claimed_executions
     ADD CONSTRAINT fk_rails_9cfe4d4944 FOREIGN KEY (job_id) REFERENCES public.solid_queue_jobs(id) ON DELETE CASCADE;
+
+
+--
+-- Name: asset_links fk_rails_9d3cd9b5dc; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.asset_links
+    ADD CONSTRAINT fk_rails_9d3cd9b5dc FOREIGN KEY (created_by_user_id) REFERENCES public.users(id);
 
 
 --
@@ -3658,6 +3824,7 @@ ALTER TABLE ONLY public.place_external_identifiers
 SET search_path TO "$user", public;
 
 INSERT INTO "schema_migrations" (version) VALUES
+('20260702030000'),
 ('20260702020000'),
 ('20260702010000'),
 ('20260702000000'),
