@@ -36,6 +36,8 @@ services:
         value: "production"
       - key: RAILS_MAX_THREADS
         value: "3"
+      - key: WEB_CONCURRENCY
+        value: "0"
       - key: JOB_CONCURRENCY
         value: "1"
       - key: SOLID_QUEUE_WORKER_THREADS

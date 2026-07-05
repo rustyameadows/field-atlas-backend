@@ -32,6 +32,13 @@ class RenderDeployConfigurationTest < ActiveSupport::TestCase
       "Solid Queue reserves worker threads plus worker and heartbeat threads"
   end
 
+  test "render puma runs in single mode on starter" do
+    env_vars = render_env_vars
+
+    assert_equal "starter", render_web_service.fetch("plan")
+    assert_equal "0", env_vars.fetch("WEB_CONCURRENCY").fetch("value")
+  end
+
   private
 
   def render_web_service
