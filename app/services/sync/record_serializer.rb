@@ -82,7 +82,7 @@ module Sync
     def self.attributes_for(record)
       case record
       when User
-        record.slice(:display_name, :email, :email_verified, :time_zone, :status)
+        record.slice(:display_name, :username, :bio, :profile_photo_asset_id, :email, :email_verified, :time_zone, :status)
       when Device
         record.slice(:user_id, :client_device_id, :name, :platform, :app_version, :build_number, :push_environment, :last_seen_at)
       when Trip

@@ -13,6 +13,9 @@
     <thead>
       <tr>
         <th>Display name</th>
+        <th>Username</th>
+        <th>Bio</th>
+        <th>Profile photo asset</th>
         <th>Email</th>
         <th>Status</th>
         <th>Admin</th>
@@ -27,6 +30,9 @@
       <% @users.each do |user| %>
         <tr>
           <td><%= user.display_name.presence || "-" %></td>
+          <td><%= user.username.presence || "-" %></td>
+          <td><%= user.bio.presence || "-" %></td>
+          <td><%= user.profile_photo_asset_id.presence || "-" %></td>
           <td><%= user.email.presence || "-" %></td>
           <td><%= user.status %></td>
           <td>

@@ -1490,7 +1490,10 @@ CREATE TABLE public.users (
     revision integer DEFAULT 1 NOT NULL,
     created_at timestamp(6) without time zone NOT NULL,
     updated_at timestamp(6) without time zone NOT NULL,
-    admin boolean DEFAULT false NOT NULL
+    admin boolean DEFAULT false NOT NULL,
+    username character varying,
+    bio text,
+    profile_photo_asset_id uuid
 );
 
 
@@ -3235,6 +3238,20 @@ CREATE INDEX index_users_on_email ON public.users USING btree (email);
 
 
 --
+-- Name: index_users_on_lower_username; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX index_users_on_lower_username ON public.users USING btree (lower((username)::text)) WHERE (username IS NOT NULL);
+
+
+--
+-- Name: index_users_on_profile_photo_asset_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_users_on_profile_photo_asset_id ON public.users USING btree (profile_photo_asset_id);
+
+
+--
 -- Name: index_users_on_status; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -3311,6 +3328,14 @@ ALTER TABLE ONLY public.place_source_links
 
 ALTER TABLE ONLY public.route_legs
     ADD CONSTRAINT fk_rails_2db74aeaf1 FOREIGN KEY (source_stop_id) REFERENCES public.trip_stops(id);
+
+
+--
+-- Name: users fk_rails_3121aedea9; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.users
+    ADD CONSTRAINT fk_rails_3121aedea9 FOREIGN KEY (profile_photo_asset_id) REFERENCES public.assets(id);
 
 
 --
@@ -3824,6 +3849,7 @@ ALTER TABLE ONLY public.place_external_identifiers
 SET search_path TO "$user", public;
 
 INSERT INTO "schema_migrations" (version) VALUES
+('20260704010000'),
 ('20260702030000'),
 ('20260702020000'),
 ('20260702010000'),

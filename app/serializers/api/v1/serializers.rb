@@ -13,18 +13,42 @@ module Api
       end
 
       def user(user)
-        {
-          id: user.id,
+        public_user(user).merge(
           apple_user_identifier: apple_user_identifier(user),
-          display_name: user.display_name,
           email: user.email,
           email_verified: user.email_verified,
           is_admin: user.admin?,
           time_zone: user.time_zone,
           status: user.status,
-          revision: user.revision,
+          revision: user.revision
+        )
+      end
+
+      def public_user(user)
+        {
+          id: user.id,
+          display_name: user.display_name,
+          username: user.username,
+          bio: user.bio,
+          profile_photo_asset_id: user.profile_photo_asset_id,
+          profile_photo_asset: profile_photo_asset(user.profile_photo_asset),
           created_at: iso(user.created_at),
           updated_at: iso(user.updated_at)
+        }
+      end
+
+      def profile_photo_asset(asset)
+        return if asset.blank?
+
+        {
+          id: asset.id,
+          asset_kind: asset.asset_kind,
+          mime_type: asset.mime_type,
+          byte_size: asset.byte_size,
+          width: asset.width,
+          height: asset.height,
+          status: asset.status,
+          updated_at: iso(asset.updated_at)
         }
       end
 

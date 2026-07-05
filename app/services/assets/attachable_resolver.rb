@@ -77,6 +77,7 @@ module Assets
     def visible_asset?(asset)
       return false if @user.blank? || asset.deleted_at.present?
       return true if asset.uploaded_by_user_id == @user.id
+      return true if User.active.exists?(profile_photo_asset_id: asset.id)
 
       asset.links.active.includes(:asset).any? { |link| readable_link?(link) }
     end
