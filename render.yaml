@@ -2,7 +2,7 @@ services:
   - type: web
     name: field-atlas-backend
     runtime: ruby
-    plan: free
+    plan: starter
     buildCommand: ./bin/render-build.sh
     startCommand: ./bin/rails server
     healthCheckPath: /up
@@ -49,6 +49,6 @@ databases:
   - name: field-atlas-backend-db
     databaseName: field_atlas_backend_production
     user: field_atlas_backend
-    plan: free
+    plan: basic-256mb
     postgresMajorVersion: "18"
     ipAllowList: []
