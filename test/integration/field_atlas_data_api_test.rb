@@ -119,6 +119,35 @@ class FieldAtlasDataApiTest < ActionDispatch::IntegrationTest
     assert_equal Digest::SHA256.hexdigest("raw-nonce-from-ios"), identity.raw_claims.fetch("nonce")
   end
 
+  test "apple auth seeds but does not overwrite app display name" do
+    post "/api/v1/auth/apple", params: @auth_payload.merge(
+      identity_token: "apple-profile-subject",
+      full_name: "Apple Seed"
+    ), as: :json
+    assert_response :created
+    token = response.parsed_body.dig("session", "access_token")
+    user = User.find(response.parsed_body.dig("user", "id"))
+    assert_equal "Apple Seed", user.display_name
+
+    patch "/api/v1/me", params: {
+      user: {
+        display_name: "rusty meadows"
+      }
+    }, headers: bearer(token), as: :json
+    assert_response :success
+
+    post "/api/v1/auth/apple", params: @auth_payload.merge(
+      identity_token: "apple-profile-subject",
+      full_name: "Apple Later"
+    ), as: :json
+    assert_response :created
+
+    user.reload
+    assert_equal "rusty meadows", user.display_name
+    assert_equal "Apple Later", user.auth_identities.find_by!(provider: "apple").display_name
+    assert_equal "rusty meadows", response.parsed_body.dig("user", "display_name")
+  end
+
   test "dev auth returns an authenticated local user session and device without apple token" do
     post "/api/v1/auth/dev", params: {
       email: "local@example.com",
@@ -137,6 +166,117 @@ class FieldAtlasDataApiTest < ActionDispatch::IntegrationTest
 
     get "/api/v1/me", headers: bearer(auth.dig("session", "access_token")), as: :json
     assert_response :success
+  end
+
+  test "current user profile can be updated and synced" do
+    token = authenticated_token(email: "profile-update@example.com", full_name: "Apple Profile")
+    user = User.find_by!(email: "profile-update@example.com")
+    asset = create_ready_asset(user: user, filename: "avatar.jpg", mime_type: "image/jpeg")
+    previous_revision = user.revision
+
+    patch "/api/v1/me", params: {
+      user: {
+        display_name: "rusty meadows",
+        username: "rameadows",
+        bio: "Bio text",
+        profile_photo_asset_id: asset.id
+      }
+    }, headers: bearer(token), as: :json
+
+    assert_response :success
+    body = response.parsed_body.fetch("user")
+    assert_equal "rusty meadows", body.fetch("display_name")
+    assert_equal "rameadows", body.fetch("username")
+    assert_equal "Bio text", body.fetch("bio")
+    assert_equal asset.id, body.fetch("profile_photo_asset_id")
+    assert_equal asset.id, body.dig("profile_photo_asset", "id")
+    refute body.dig("profile_photo_asset", "storage_key")
+    assert_equal previous_revision + 1, body.fetch("revision")
+
+    user.reload
+    assert_equal "rusty meadows", user.display_name
+    assert_equal "rameadows", user.username
+    assert_equal "Bio text", user.bio
+    assert_equal asset.id, user.profile_photo_asset_id
+    assert SyncEvent.exists?(entity_type: "user", entity_id: user.id, action: "updated", record_revision: user.revision)
+
+    get "/api/v1/sync", headers: bearer(token), as: :json
+    assert_response :success
+    user_change = response.parsed_body.fetch("changes").find { |record| record["type"] == "user" && record["id"] == user.id }
+    assert_equal "rameadows", user_change.dig("attributes", "username")
+    assert_equal "Bio text", user_change.dig("attributes", "bio")
+    assert_equal asset.id, user_change.dig("attributes", "profile_photo_asset_id")
+  end
+
+  test "profile update rejects duplicate username" do
+    first_token = authenticated_token(email: "profile-first@example.com", full_name: "First Profile")
+    second_token = authenticated_token(email: "profile-second@example.com", full_name: "Second Profile")
+
+    patch "/api/v1/me", params: {
+      user: { username: "rameadows" }
+    }, headers: bearer(first_token), as: :json
+    assert_response :success
+
+    patch "/api/v1/me", params: {
+      user: { username: "RaMeadows" }
+    }, headers: bearer(second_token), as: :json
+    assert_response :unprocessable_entity
+    assert_equal "validation_failed", response.parsed_body.dig("error", "code")
+  end
+
+  test "profile fields can be cleared" do
+    token = authenticated_token(email: "profile-clear@example.com", full_name: "Clear Profile")
+    user = User.find_by!(email: "profile-clear@example.com")
+    asset = create_ready_asset(user: user, filename: "clear.jpg", mime_type: "image/jpeg")
+    user.update!(username: "clearname", bio: "Clear me", profile_photo_asset: asset)
+
+    patch "/api/v1/me", params: {
+      user: {
+        username: "",
+        bio: "",
+        profile_photo_asset_id: nil
+      }
+    }, headers: bearer(token), as: :json
+
+    assert_response :success
+    user.reload
+    assert_nil user.username
+    assert_nil user.bio
+    assert_nil user.profile_photo_asset_id
+    assert_nil response.parsed_body.dig("user", "username")
+    assert_nil response.parsed_body.dig("user", "bio")
+    assert_nil response.parsed_body.dig("user", "profile_photo_asset_id")
+  end
+
+  test "public profile endpoint exposes only public fields" do
+    owner_token = authenticated_token(email: "public-owner@example.com", full_name: "Public Owner")
+    owner = User.find_by!(email: "public-owner@example.com")
+    asset = create_ready_asset(user: owner, filename: "public.jpg", mime_type: "image/jpeg")
+    patch "/api/v1/me", params: {
+      user: {
+        display_name: "Public Name",
+        username: "publicname",
+        bio: "Public bio",
+        profile_photo_asset_id: asset.id
+      }
+    }, headers: bearer(owner_token), as: :json
+    assert_response :success
+
+    viewer_token = authenticated_token(email: "public-viewer@example.com", full_name: "Public Viewer")
+    get "/api/v1/users/#{owner.id}", headers: bearer(viewer_token), as: :json
+
+    assert_response :success
+    profile = response.parsed_body.fetch("user")
+    assert_equal owner.id, profile.fetch("id")
+    assert_equal "Public Name", profile.fetch("display_name")
+    assert_equal "publicname", profile.fetch("username")
+    assert_equal "Public bio", profile.fetch("bio")
+    assert_equal asset.id, profile.fetch("profile_photo_asset_id")
+    assert_equal asset.id, profile.dig("profile_photo_asset", "id")
+    refute profile.key?("email")
+    refute profile.key?("apple_user_identifier")
+    refute profile.key?("is_admin")
+    refute profile.dig("profile_photo_asset", "storage_key")
   end
 
   test "sync operations accept a workspace and pull returns canonical changes" do
@@ -544,6 +684,31 @@ class FieldAtlasDataApiTest < ActionDispatch::IntegrationTest
     assert_equal owner.id, Asset.find(asset_id).uploaded_by_user_id
   end
 
+  test "profile photo assets are public to authenticated users but unrelated assets stay private" do
+    owner_token = authenticated_token(email: "profile-photo-owner@example.com", full_name: "Photo Owner")
+    owner = User.find_by!(email: "profile-photo-owner@example.com")
+    viewer_token = authenticated_token(email: "profile-photo-viewer@example.com", full_name: "Photo Viewer")
+    public_asset = create_ready_asset(user: owner, filename: "public-profile.jpg", mime_type: "image/jpeg")
+    private_asset = create_ready_asset(user: owner, filename: "private-note.jpg", mime_type: "image/jpeg")
+    fake_r2 = FakeR2Client.new(byte_size: 1_024, mime_type: "image/jpeg")
+
+    patch "/api/v1/me", params: {
+      user: { profile_photo_asset_id: public_asset.id }
+    }, headers: bearer(owner_token), as: :json
+    assert_response :success
+
+    with_fake_r2(fake_r2) do
+      post "/api/v1/assets/download_intents", params: { asset_ids: [ public_asset.id ] }, headers: bearer(viewer_token), as: :json
+    end
+    assert_response :success
+    assert_equal public_asset.id, response.parsed_body.dig("downloads", 0, "asset_id")
+
+    with_fake_r2(fake_r2) do
+      post "/api/v1/assets/download_intents", params: { asset_ids: [ private_asset.id ] }, headers: bearer(viewer_token), as: :json
+    end
+    assert_response :not_found
+  end
+
   test "deleting asset links creates sync tombstones" do
     token = authenticated_token(email: "asset-delete@example.com", full_name: "Asset Delete")
     device_id = register_device(token, local_id: "asset-delete-device").fetch("id")
@@ -815,6 +980,19 @@ class FieldAtlasDataApiTest < ActionDispatch::IntegrationTest
       slug: slug,
       kind: "poi",
       status: "published"
+    )
+  end
+
+  def create_ready_asset(user:, filename:, mime_type:)
+    Asset.create!(
+      uploaded_by_user: user,
+      asset_kind: "image",
+      mime_type: mime_type,
+      original_filename: filename,
+      byte_size: 1_024,
+      storage_provider: "r2",
+      storage_key: "user_uploads/#{user.id}/test/#{SecureRandom.uuid}/#{filename}",
+      status: "ready"
     )
   end
 

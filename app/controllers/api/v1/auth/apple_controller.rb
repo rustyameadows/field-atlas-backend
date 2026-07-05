@@ -29,7 +29,8 @@ module Api
         def upsert_user_and_device(claims)
           identity = UserAuthIdentity.find_or_initialize_by(provider: "apple", provider_subject: claims.fetch("sub"))
           user = identity.user || User.new
-          user.display_name = params[:full_name].presence || claims["name"].presence || user.display_name
+          provider_display_name = params[:full_name].presence || claims["name"].presence
+          user.display_name = provider_display_name if user.display_name.blank? && provider_display_name.present?
           user.email = params[:email].presence || claims["email"].presence || user.email
           user.email_verified = ActiveModel::Type::Boolean.new.cast(claims["email_verified"]) if claims.key?("email_verified")
           user.status ||= "active"
@@ -39,7 +40,7 @@ module Api
             identity.user = user
             identity.email = user.email
             identity.email_verified = user.email_verified
-            identity.display_name = user.display_name
+            identity.display_name = provider_display_name.presence || identity.display_name
             identity.raw_claims = claims
             identity.last_verified_at = Time.current
             identity.save!

@@ -11,6 +11,8 @@ Rails.application.routes.draw do
         delete "session", to: "sessions#destroy"
       end
       get "me", to: "me#show"
+      patch "me", to: "me#update"
+      resources :users, only: [ :show ]
       resources :devices, only: [ :create, :update ]
       get "sync", to: "sync#show"
       post "sync/operations", to: "sync_operations#create"

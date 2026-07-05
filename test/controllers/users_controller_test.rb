@@ -6,8 +6,20 @@ class UsersControllerTest < ActionDispatch::IntegrationTest
       display_name: "Avery Field",
       email: "avery@example.com",
       email_verified: true,
-      status: "active"
+      status: "active",
+      username: "averyfield",
+      bio: "Maps and desert roads."
     )
+    asset = Asset.create!(
+      uploaded_by_user: user,
+      asset_kind: "image",
+      mime_type: "image/jpeg",
+      byte_size: 42,
+      storage_provider: "r2",
+      storage_key: "user_uploads/#{user.id}/test/profile.jpg",
+      status: "ready"
+    )
+    user.update!(profile_photo_asset: asset)
     Device.create!(user: user, client_device_id: "iphone-1", name: "Avery's iPhone", platform: "ios")
     Device.create!(user: user, client_device_id: "ipad-1", name: "Avery's iPad", platform: "ios")
     Trip.create!(owner_user: user, title: "Big Bend Weekend")
@@ -18,6 +30,9 @@ class UsersControllerTest < ActionDispatch::IntegrationTest
     assert_select "h1", "Users"
     assert_select "a", text: "Places"
     assert_select "td", text: "Avery Field"
+    assert_select "td", text: "averyfield"
+    assert_select "td", text: "Maps and desert roads."
+    assert_select "td", text: asset.id
     assert_select "td", text: "avery@example.com"
     assert_select "td", text: "active"
     assert_select "td", text: "Yes"
