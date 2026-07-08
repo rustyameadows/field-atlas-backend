@@ -37,6 +37,22 @@ module Api
         }
       end
 
+      def admin_user(user, trip_count:, map_count:, last_seen_at:)
+        {
+          id: user.id,
+          display_name: user.display_name,
+          username: user.username,
+          email: user.email,
+          profile_photo_asset_id: user.profile_photo_asset_id,
+          profile_photo_asset: admin_profile_photo_asset(user.profile_photo_asset),
+          is_admin: user.admin?,
+          trip_count: trip_count.to_i,
+          map_count: map_count.to_i,
+          created_at: iso(user.created_at),
+          last_seen_at: iso(last_seen_at)
+        }
+      end
+
       def profile_photo_asset(asset)
         return if asset.blank?
 
@@ -47,6 +63,19 @@ module Api
           byte_size: asset.byte_size,
           width: asset.width,
           height: asset.height,
+          status: asset.status,
+          updated_at: iso(asset.updated_at)
+        }
+      end
+
+      def admin_profile_photo_asset(asset)
+        return if asset.blank?
+
+        {
+          id: asset.id,
+          asset_kind: asset.asset_kind,
+          mime_type: asset.mime_type,
+          byte_size: asset.byte_size,
           status: asset.status,
           updated_at: iso(asset.updated_at)
         }

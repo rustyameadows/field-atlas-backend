@@ -12,6 +12,9 @@ Rails.application.routes.draw do
       end
       get "me", to: "me#show"
       patch "me", to: "me#update"
+      namespace :admin do
+        resources :users, only: [ :index ]
+      end
       resources :users, only: [ :show ]
       resources :devices, only: [ :create, :update ]
       get "sync", to: "sync#show"
