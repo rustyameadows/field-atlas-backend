@@ -651,10 +651,8 @@ module Sync
           trip: trip,
           invited_by_user: @user,
           role: read_payload(payload, :role) == MISSING ? "editor" : read_payload(payload, :role),
-          expires_at: seconds_from_now(read_payload(payload, :expires_in_seconds, :expiresInSeconds)),
-          url: invite_url_for(nil)
+          expires_at: seconds_from_now(read_payload(payload, :expires_in_seconds, :expiresInSeconds))
         )
-        invite.update!(url: invite_url_for(invite.token))
         EventRecorder.record!(invite, action: "created", actor_user: @user, actor_device: device, trip: trip)
         accepted_result(operation, server_id: invite.id, revision: invite.revision, mappings: [ mapping("trip_invite", invite.token, invite) ])
       when "accept_trip_invite"
@@ -994,11 +992,6 @@ module Sync
       return if value == MISSING || value.blank?
 
       value.to_i.seconds.from_now
-    end
-
-    def invite_url_for(token)
-      host = ENV.fetch("FIELD_ATLAS_INVITE_HOST", "http://127.0.0.1:3000")
-      token.present? ? "#{host}/invites/#{token}" : host
     end
 
     def uuid?(value)

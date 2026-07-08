@@ -10,7 +10,7 @@ Prepare the Rails backend for a free-compatible Render Blueprint deployment.
   Render PostgreSQL database.
 - Keep Solid Cache, Solid Queue, and Solid Cable in the primary database through
   normal Rails migrations.
-- Mark `RAILS_MASTER_KEY`, `NPS_API_KEY`, and `FIELD_ATLAS_INVITE_HOST` as
+- Mark `RAILS_MASTER_KEY` and `NPS_API_KEY` as
   Dashboard-provided secrets.
 
 ## Verification Notes

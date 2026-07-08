@@ -16,8 +16,10 @@ services:
         sync: false
       - key: NPS_API_KEY
         sync: false
-      - key: FIELD_ATLAS_INVITE_HOST
-        sync: false
+      - key: FIELD_ATLAS_WEB_BASE_URL
+        value: "https://field-atlas.com"
+      - key: FIELD_ATLAS_API_BASE_URL
+        value: "https://api.field-atlas.com"
       - key: CLOUDFLARE_R2_ACCOUNT_ID
         sync: false
       - key: CLOUDFLARE_R2_ACCESS_KEY_ID

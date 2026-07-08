@@ -11,10 +11,8 @@ module Api
           trip: trip,
           invited_by_user: current_user,
           role: params[:role].presence || "editor",
-          expires_at: expires_at,
-          url: invite_url_for(nil)
+          expires_at: expires_at
         )
-        invite.update!(url: invite_url_for(invite.token))
         ::Sync::EventRecorder.record!(invite, action: "created", actor_user: current_user, actor_device: current_device, trip: trip)
 
         render json: { invite: Serializers.invite(invite) }, status: :created
@@ -57,11 +55,6 @@ module Api
       def expires_at
         seconds = params[:expires_in_seconds].presence
         seconds ? seconds.to_i.seconds.from_now : nil
-      end
-
-      def invite_url_for(token)
-        host = ENV.fetch("FIELD_ATLAS_INVITE_HOST", "http://127.0.0.1:3000")
-        token.present? ? "#{host}/invites/#{token}" : host
       end
     end
   end

@@ -7,7 +7,7 @@
     "inviter_display_name": "Avery Field",
     "accepted_by_user_id": null,
     "token": "invite-token",
-    "url": "http://127.0.0.1:3000/invites/invite-token",
+    "url": "https://field-atlas.com/invites/?token=invite-token",
     "role": "editor",
     "status": "pending",
     "expires_at": "2026-07-01T22:00:00Z",

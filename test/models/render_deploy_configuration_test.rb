@@ -39,6 +39,14 @@ class RenderDeployConfigurationTest < ActiveSupport::TestCase
     assert_equal "0", env_vars.fetch("WEB_CONCURRENCY").fetch("value")
   end
 
+  test "render config declares web and api base urls" do
+    env_vars = render_env_vars
+
+    assert_equal "https://field-atlas.com", env_vars.fetch("FIELD_ATLAS_WEB_BASE_URL").fetch("value")
+    assert_equal "https://api.field-atlas.com", env_vars.fetch("FIELD_ATLAS_API_BASE_URL").fetch("value")
+    refute env_vars.key?([ "FIELD_ATLAS", "INVITE_HOST" ].join("_"))
+  end
+
   private
 
   def render_web_service

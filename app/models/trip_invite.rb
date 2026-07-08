@@ -24,6 +24,7 @@ class TripInvite < ApplicationRecord
 
   def set_defaults
     self.token ||= SecureRandom.urlsafe_base64(24)
+    self.url ||= TripInviteUrl.for(token)
     self.status ||= "pending"
     self.role ||= "editor"
   end

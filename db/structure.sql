@@ -3849,6 +3849,7 @@ ALTER TABLE ONLY public.place_external_identifiers
 SET search_path TO "$user", public;
 
 INSERT INTO "schema_migrations" (version) VALUES
+('20260707010000'),
 ('20260704010000'),
 ('20260702030000'),
 ('20260702020000'),

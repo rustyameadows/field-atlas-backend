@@ -922,7 +922,7 @@ Response:
     "id": "1f5a9f28-a2df-4899-93ec-b2e29feabf56",
     "trip_id": "2b73d044-8a26-44a7-a42f-64e3f5e9f30d",
     "token": "invite-token",
-    "url": "https://fieldatlas.example/invites/invite-token",
+    "url": "https://field-atlas.com/invites/?token=invite-token",
     "role": "editor",
     "status": "pending",
     "expires_at": "2026-07-07T22:00:00Z"
