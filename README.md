@@ -60,15 +60,16 @@ In the Render Dashboard, fill the secret env vars marked `sync: false`:
 
 - `RAILS_MASTER_KEY`
 - `NPS_API_KEY`
-- `FIELD_ATLAS_INVITE_HOST`
 - `CLOUDFLARE_R2_ACCOUNT_ID`
 - `CLOUDFLARE_R2_ACCESS_KEY_ID`
 - `CLOUDFLARE_R2_SECRET_ACCESS_KEY`
 - `CLOUDFLARE_R2_BUCKET`
 
-The Blueprint also sets the non-secret Sign in with Apple values for the native
-iOS app:
+The Blueprint also sets the public web/API base URLs and non-secret Sign in
+with Apple values for the native iOS app:
 
+- `FIELD_ATLAS_WEB_BASE_URL=https://field-atlas.com`
+- `FIELD_ATLAS_API_BASE_URL=https://api.field-atlas.com`
 - `APPLE_CLIENT_ID=com.rustymeadows.DestinationApp`
 - `APPLE_ISSUER=https://appleid.apple.com`
 - `APPLE_JWKS_URL=https://appleid.apple.com/auth/keys`

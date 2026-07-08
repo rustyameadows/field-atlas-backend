@@ -459,7 +459,7 @@ class FieldAtlasDataApiTest < ActionDispatch::IntegrationTest
     assert_response :created
     invite = response.parsed_body.fetch("invite")
     assert_equal "pending", invite.fetch("status")
-    assert invite.fetch("url").include?(invite.fetch("token"))
+    assert_equal invite_url_for(invite.fetch("token")), invite.fetch("url")
 
     guest_token = authenticated_token(email: "guest@example.com", full_name: "Guest Field")
     get "/api/v1/invites/#{invite.fetch("token")}", as: :json
@@ -855,6 +855,12 @@ class FieldAtlasDataApiTest < ActionDispatch::IntegrationTest
     invite_result = response.parsed_body.fetch("results").first
     assert_equal "accepted", invite_result.fetch("status")
     invite = TripInvite.find(invite_result.fetch("server_id"))
+    assert_equal invite_url_for(invite.token), invite.url
+
+    get "/api/v1/sync", headers: bearer(owner_token), as: :json
+    assert_response :success
+    synced_invite = response.parsed_body.fetch("changes").find { |record| record["type"] == "trip_invite" && record["id"] == invite.id }
+    assert_equal invite_url_for(invite.token), synced_invite.dig("attributes", "url")
 
     guest_token = authenticated_token(email: "op-guest@example.com", full_name: "Guest Field")
     guest_device = register_device(guest_token, local_id: "op-guest-device").fetch("id")
@@ -972,6 +978,10 @@ class FieldAtlasDataApiTest < ActionDispatch::IntegrationTest
 
   def bearer(token)
     { "Authorization" => "Bearer #{token}" }
+  end
+
+  def invite_url_for(token)
+    "https://field-atlas.com/invites/?token=#{ERB::Util.url_encode(token)}"
   end
 
   def create_place_record(slug:)
