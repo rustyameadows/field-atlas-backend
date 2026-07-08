@@ -40,6 +40,10 @@ module Api
         current_api_session&.device
       end
 
+      def require_admin_user!
+        raise ForbiddenError unless current_user&.admin?
+      end
+
       def bearer_token
         header = request.authorization.to_s
         return unless header.start_with?("Bearer ")
